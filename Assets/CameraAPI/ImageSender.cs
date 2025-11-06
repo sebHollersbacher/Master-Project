@@ -12,10 +12,22 @@ public class ImageSender : MonoBehaviour
     [SerializeField] private string wsUrl = "ws://192.168.0.208:9002";
     [SerializeField] private float fps = 30f;
     [SerializeField] private Transform _transform;
+    [SerializeField] private Transform _ref;
+    
 
     private WebSocket websocket;
     private Texture2D frameTex;
     private float sendTimer;
+
+    private void Start()
+    {
+        Connect();
+    }
+
+    private void OnDestroy()
+    {
+        Disconnect();
+    }
 
     private void Update()
     {
@@ -58,7 +70,7 @@ public class ImageSender : MonoBehaviour
             frameTex.Apply(false);
 
             byte[] jpgBytes = frameTex.EncodeToJPG(80);
-            
+
             if (websocket == null || websocket.State != WebSocketState.Open)
                 return;
             await websocket.Send(jpgBytes);
@@ -73,12 +85,13 @@ public class ImageSender : MonoBehaviour
     {
         string[] lines = msg.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
         Vector3 position = Vector3.zero;
-        Matrix4x4 rotMatrix = Matrix4x4.identity;
+        Quaternion rotation = Quaternion.identity;
 
         foreach (string line in lines)
         {
             string[] parts = line.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length == 0) continue;
+            Debug.Log(parts);
 
             if (parts[0] == "T" && parts.Length >= 4)
             {
@@ -86,18 +99,28 @@ public class ImageSender : MonoBehaviour
                 float.TryParse(parts[2], out position.y);
                 float.TryParse(parts[3], out position.z);
             }
-            else if (parts[0] == "R" && parts.Length >= 4)
+            else if (parts[0] == "R" && parts.Length >= 5)
             {
                 float.TryParse(parts[1], out float rx);
                 float.TryParse(parts[2], out float ry);
                 float.TryParse(parts[3], out float rz);
-                rotMatrix = Matrix4x4.Rotate(
-                    Quaternion.Euler(rx * Mathf.Rad2Deg, ry * Mathf.Rad2Deg, rz * Mathf.Rad2Deg)
-                );
+                float.TryParse(parts[4], out float rw);
+                
+                rotation = new Quaternion(rx, ry, rz, rw);
             }
         }
+        Quaternion Bq = new Quaternion(1f, 0f, 0f, 0f);      // 180° about X
+        Quaternion rotLocal = Bq * rotation * Bq; 
+        
+        Quaternion rotZ = Quaternion.AngleAxis(180f, Vector3.forward);
+        rotLocal = rotZ * rotLocal;
 
-        _transform.SetPositionAndRotation(new Vector3(0, 0.5f, 0), rotMatrix.rotation);
+        position.y = -position.y;
+        position.z = 0.5f * position.z;
+        
+        Debug.Log("[DEBUG] Rotation: " + rotation.eulerAngles);
+        _transform.position = _ref.TransformPoint(position);
+        _transform.rotation = _ref.rotation * rotLocal;
     }
 
     private async void OnApplicationQuit()
@@ -134,8 +157,14 @@ public class ImageSender : MonoBehaviour
 
         if (websocket.State == WebSocketState.Open)
         {
-            try { await websocket.Close(); }
-            catch (Exception e) { Debug.LogWarning($"[DEBUG] WebSocket close warning: {e.Message}"); }
+            try
+            {
+                await websocket.Close();
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[DEBUG] WebSocket close warning: {e.Message}");
+            }
         }
 
         websocket = null;
