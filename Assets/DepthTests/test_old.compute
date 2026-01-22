@@ -1,0 +1,81 @@
+#pragma kernel DepthMapping
+
+// Meta environment depth: RenderTexture bound as Texture2DArray
+Texture2DArray<float> _RawDepth;
+
+// Output XR-camera-aligned depth (meters)
+RWTexture2D<float> _OutDepth;
+
+// Inverse of _EnvironmentDepthReprojectionMatrices (2 matrices: left/right)
+float4x4 _EnvReprojInv[2];
+
+// XR View matrices (world → view)
+float4x4 _XRCameraView_L;
+float4x4 _XRCameraView_R;
+
+float4x4 _TrackingToUnity;
+float4x4 _UnityToTracking;
+
+int _Width;
+int _Height;
+int _EyeIndex;      // 0 = left eye, 1 = right eye  (mono depth: ALWAYS 0)
+
+float rawToNDC(float d)
+{
+    // raw env-depth UNORM (0–1) → NDC (-1..1)
+    return d * 2.0 - 1.0;
+}
+
+[numthreads(8, 8, 1)]
+void DepthMapping(uint3 id : SV_DispatchThreadID)
+{
+    uint2 pix = id.xy;
+
+    if (pix.x >= _Width || pix.y >= _Height)
+        return;
+
+    int eye = _EyeIndex;   // left = 0
+
+    //----------------------------------------------------
+    // 1. Sample raw environment depth from slice 0 (MONO)
+    //----------------------------------------------------
+    float rawDepth = _RawDepth.Load(int4(pix.x, pix.y, 0, 0)).r;
+
+    if (rawDepth <= 0.0)
+    {
+        _OutDepth[pix] = 0;
+        return;
+    }
+
+    //----------------------------------------------------
+    // 2. Convert (x,y) + depth → depth-camera clip space
+    //----------------------------------------------------
+    float2 uv = (float2(pix) + 0.5) / float2(_Width, _Height);
+    float2 ndcXY = uv * 2.0 - 1.0;
+    float  ndcZ  = rawToNDC(rawDepth);
+
+    float4 depthClip = float4(ndcXY.x, ndcXY.y, ndcZ, 1.0);
+
+    //----------------------------------------------------
+    // 3. depthClip → world space (env depth world)
+    //----------------------------------------------------
+    float4 world = mul(_EnvReprojInv[eye], depthClip);
+    world /= world.w;
+
+    //----------------------------------------------------
+    // 4. world → XR camera view space
+    //----------------------------------------------------
+    float4 unityPos = mul(_TrackingToUnity, world);
+    float4 viewPos = mul(_XRCameraView_L, unityPos);
+
+    //----------------------------------------------------
+    // 5. Convert to camera-space depth (meters)
+    // Unity XR view space forward = -Z
+    //----------------------------------------------------
+    float depthMeters = -viewPos.z;
+
+    if (depthMeters < 0)
+        depthMeters = 0;
+
+    _OutDepth[pix] = depthMeters;
+}
