@@ -1,0 +1,10 @@
+/.idea
+
+/datasets
+/indoor_backgrounds
+/output_results
+/runs
+/train_images
+
+/yolo11n.pt
+/yolov8n-pose.pt
