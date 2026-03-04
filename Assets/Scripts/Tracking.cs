@@ -13,7 +13,7 @@ public class Tracking
     private const string pluginName = "m3t";
 
     [DllImport(pluginName)]
-    private static extern void InitTracker(string a, string b, string c);
+    private static extern void InitTracker(string a, string b);
 
     [DllImport(pluginName)]
     private static extern IntPtr GetRenderEventFunc();
@@ -40,8 +40,7 @@ public class Tracking
 
         string path = Application.persistentDataPath;
         await CopyFilesAsync(path);
-        InitTracker(Path.Combine(path, "base.yaml"), Path.Combine(path, "region_model.bin"),
-            Path.Combine(path, "detector.yaml"));
+        InitTracker(Path.Combine(path, "pikachu_yaml.yaml"), Path.Combine(path, "pikachu_model.bin"));
         GL.IssuePluginEvent(GetRenderEventFunc(), 1);
         Debug.Log("M3T Initialized via Script");
 
@@ -50,7 +49,7 @@ public class Tracking
 
     private async Task CopyFilesAsync(string path)
     {
-        string[] files = { "base.yaml", "detector.yaml", "pikachu.obj", "region_model.bin" };
+        string[] files = { "pikachu_yaml.yaml", "pikachu_obj.obj", "pikachu_model.bin" };
 
         foreach (var f in files)
         {

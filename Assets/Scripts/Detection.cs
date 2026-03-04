@@ -4,21 +4,42 @@ using System.Threading.Tasks;
 using UnityEngine;
 using Unity.InferenceEngine;
 
-public class Detection :  MonoBehaviour
+public class Detection : MonoBehaviour
 {
-    public ModelAsset modelAsset;
+    [SerializeField] private ModelAsset pikachuModel;
+    [SerializeField] private ModelAsset penModel;
+    [SerializeField] private ModelAsset racketModel;
+    public TargetModel mode;
+    
     private Model runtimeModel;
     private Worker worker;
     private Tensor<float> inputTensor;
     private RenderTexture copyTexture;
+    
+    public enum TargetModel { Pikachu, Racket, Pen }
+    public struct YoloResult
+    {
+        public Rect boundingBox;
+        public List<Vector2> keypoints;
+        public float confidence;
+        public TargetModel target;
+        public bool isValid;
+    }
 
     public void Start()
     {
-        runtimeModel = ModelLoader.Load(modelAsset);
+        runtimeModel = mode switch
+        {
+            TargetModel.Pikachu => ModelLoader.Load(pikachuModel),
+            TargetModel.Racket => ModelLoader.Load(racketModel),
+            TargetModel.Pen => ModelLoader.Load(penModel),
+            _ => throw new ArgumentOutOfRangeException()
+        };
+        
         worker = new Worker(runtimeModel, BackendType.GPUCompute);
 
-        inputTensor = new Tensor<float>(new TensorShape(1, 3, 480, 640));
-        copyTexture = new RenderTexture(640, 480, 0, RenderTextureFormat.ARGB32);
+        inputTensor = new Tensor<float>(new TensorShape(1, 3, Constants.Height, Constants.Width));
+        copyTexture = new RenderTexture(Constants.Width, Constants.Height, 0, RenderTextureFormat.ARGB32);
     }
 
     public void OnDestroy()
@@ -27,7 +48,7 @@ public class Detection :  MonoBehaviour
         inputTensor?.Dispose();
     }
 
-    public async Task<List<Vector2>> Inference(Texture cameraTexture, float minScore)
+    public async Task<YoloResult> Inference(Texture cameraTexture, float minScore)
     {
         Graphics.Blit(cameraTexture, copyTexture); // copy texture for Detection
 
@@ -35,13 +56,14 @@ public class Detection :  MonoBehaviour
         // TextureConverter automatically handles resizing if cam size != tensor size
         // It also handles swizzling (RGBA -> RGB) if your tensor is 3 channels
         TextureConverter.ToTensor(copyTexture, inputTensor,
-            new TextureTransform().SetDimensions(640, 480).SetTensorLayout(TensorLayout.NCHW));
+            new TextureTransform().SetDimensions(Constants.Width, Constants.Height).SetTensorLayout(TensorLayout.NCHW));
 
         // 5. Run Inference
         worker.Schedule(inputTensor);
 
         // 6. Get Output (Non-blocking reference)
         Tensor<float> outputTensor = worker.PeekOutput() as Tensor<float>;
+        int numFeatures = outputTensor.shape[1];
         // TensorFloat(1, 41, 6300), 4 box + 1 score + 12 kpts * 3 = 41
         // Fine Grid (Stride 8): 4800
         // Medium Grid (Stride 16): 1200
@@ -53,53 +75,66 @@ public class Detection :  MonoBehaviour
             Tensor<float> cpuTensor = await outputTensor.ReadbackAndCloneAsync();
             float[] data = cpuTensor.DownloadToArray();
             cpuTensor.Dispose();
-            return ParseKeypoints(data, minScore);
+            return ParseKeypoints(data, minScore, numFeatures);
         }
-        catch (Exception)
+        catch (Exception e)
         {
-            Debug.Log("[DEBUG] Error while reading output in cpu");
-            return new List<Vector2>();
+            Debug.LogError($"[DEBUG] Error reading CPU tensor: {e.Message}");
+            return new YoloResult { isValid = false };
         }
     }
-
-    private List<Vector2> ParseKeypoints(float[] data, float minScore)
+    
+    public YoloResult ParseKeypoints(float[] data, float minScore, int numFeatures)
     {
-        var imagePoints = new List<Vector2>();
+        YoloResult result = new YoloResult { isValid = false, keypoints = new List<Vector2>() };
+        
+        int numAnchors = 8400; 
+        float highestScore = 0f;
+        int bestAnchorIndex = -1;
 
-        int numAnchors = 6300;
-
-        // 1. Find Best Anchor (The Pikachu with the highest score)
-        int bestAnchor = -1;
-        float bestMaxScore = 0f;
-        int scoreOffset = 4 * numAnchors;
-
-        for (int i = 0; i < numAnchors; i++)
+        // 1. Find the single best bounding box (Basic approach without full NMS)
+        for (int a = 0; a < numAnchors; a++)
         {
-            float score = data[scoreOffset + i];
-            if (score > bestMaxScore)
+            // The object confidence score is at feature index 4
+            float score = data[4 * numAnchors + a];
+
+            if (score > minScore && score > highestScore)
             {
-                bestMaxScore = score;
-                bestAnchor = i;
+                highestScore = score;
+                bestAnchorIndex = a;
             }
         }
 
-        // If no Pikachu found above the minimum score, return empty list
-        if (bestAnchor == -1 || bestMaxScore < minScore)
-            return imagePoints;
-
-        // 2. Extract ALL 12 Keypoints (No confidence check)
-        // Keypoints start at Channel 5. Format: [X, Y, Conf, X, Y, Conf...]
-        for (int k = 0; k < 12; k++)
+        // 2. Extract keypoints only for that best anchor
+        if (bestAnchorIndex != -1)
         {
-            int baseChan = 5 + (k * 3);
+            result.isValid = true;
+            result.target = mode;
+            result.confidence = highestScore;
+            
+            // --- EXTRACT BOUNDING BOX ---
+            float cx = data[(0 * numAnchors) + bestAnchorIndex];
+            float cy = data[(1 * numAnchors) + bestAnchorIndex];
+            float w  = data[(2 * numAnchors) + bestAnchorIndex];
+            float h  = data[(3 * numAnchors) + bestAnchorIndex];
+            
+            // Convert center coordinates to Unity Rect (xMin, yMin, width, height)
+            result.boundingBox = new Rect(cx - (w / 2f), cy - (h / 2f), w, h);
+            
+            int numKeypoints = (numFeatures - 5) / 3;
+            for (int k = 0; k < numKeypoints; k++)
+            {
+                // Keypoints start at feature index 5. Each has X, Y, Conf
+                int kptBaseFeature = 5 + (k * 3);
+            
+                float kptX = data[(kptBaseFeature + 0) * numAnchors + bestAnchorIndex];
+                float kptY = data[(kptBaseFeature + 1) * numAnchors + bestAnchorIndex];
+                // float kptConf = data[(kptBaseFeature + 2) * numAnchors + bestAnchorIndex];   // not used but available
 
-            int idxX = (baseChan + 0) * numAnchors + bestAnchor;
-            int idxY = (baseChan + 1) * numAnchors + bestAnchor;
-
-            // Directly add the point, regardless of confidence
-            imagePoints.Add(new Vector2(data[idxX], data[idxY]));
+                result.keypoints.Add(new Vector2(kptX, kptY)); 
+            }
         }
 
-        return imagePoints;
+        return result;
     }
 }
