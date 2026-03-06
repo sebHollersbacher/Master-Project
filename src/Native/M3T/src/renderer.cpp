@@ -3,8 +3,8 @@
 
 #include <m3t/renderer.h>
 
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
+#include <GLES3/gl3.h>
+#include <GLES3/gl3ext.h>
 
 namespace m3t {
 

@@ -2,6 +2,11 @@
 // Copyright (c) 2023 Manuel Stoiber, German Aerospace Center (DLR)
 
 #include <m3t/region_modality.h>
+#include <android/log.h>
+
+#define LOG_TAG "M3T_NATIVE"
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
 namespace m3t {
 
@@ -1025,6 +1030,9 @@ void RegionModality::PrecalculateIterationDependentVariables(
 void RegionModality::AddLinePixelColorsToTempHistograms(
     bool handle_occlusions) {
   const cv::Mat &image{color_camera_ptr_->image()};
+
+  double brightness = cv::mean(image)[0];
+
   const RegionModel::View *view;
   region_model_ptr_->GetClosestView(body2camera_pose_, &view);
 
@@ -1065,27 +1073,38 @@ void RegionModality::AddLinePixelColorsToTempHistograms(
     // Calculate center in image coordinates
     Eigen::Vector3f center_f_camera{body2camera_pose_ *
                                     data_point.center_f_body};
-    if (center_f_camera(2) <= 0.0f) continue;
+    if (center_f_camera(2) <= 0.0f) {
+      if (i == 0)
+        LOGI("REJECT [%d]: Behind Camera (Z: %f)", i, center_f_camera(2));
+      continue;
+    }
     float center_u = center_f_camera(0) * fu_ / center_f_camera(2) + ppu_;
     float center_v = center_f_camera(1) * fv_ / center_f_camera(2) + ppv_;
     int i_center_u = int(center_u + 0.5f);
     int i_center_v = int(center_v + 0.5f);
-    if (i_center_u < 0.0f || i_center_u > image_width_minus_1_ ||
-        i_center_v < 0 || i_center_v > image_height_minus_1_)
+    if (i_center_u < 0 || i_center_u > image_width_minus_1_ || i_center_v < 0 ||
+        i_center_v > image_height_minus_1_) {
+      if (i == 0)
+        LOGI("REJECT [%d]: Off Screen (U: %f, V: %f)", i, center_u, center_v);
       continue;
+    }
 
     // Handle occlusions
     if (handle_occlusions) {
       if (model_occlusions_ && body_visible_depth &&
           !IsLineUnoccludedModeled(
               center_u, center_v, center_f_camera(2),
-              data_point.depth_offsets[modeled_depth_offset_id_]))
+              data_point.depth_offsets[modeled_depth_offset_id_])) {
+        if (i == 0) LOGI("REJECT [%d]: Modeled Occlusion", i);
         continue;
+      }
       if (measure_occlusions_ &&
           !IsLineUnoccludedMeasured(
               data_point.center_f_body,
-              data_point.depth_offsets[measured_depth_offset_id_]))
+              data_point.depth_offsets[measured_depth_offset_id_])) {
+        if (i == 0) LOGI("REJECT [%d]: Measured Occlusion", i);
         continue;
+      }
     }
 
     // Region checking
@@ -1659,7 +1678,6 @@ void RegionModality::CalculateDistributionMoments(
 
 void RegionModality::ShowAndSaveImage(const std::string &title, int save_index,
                                       const cv::Mat &image) const {
-  if (display_visualization_) cv::imshow(title, image);
   if (save_visualizations_) {
     std::filesystem::path path{
         save_directory_ /

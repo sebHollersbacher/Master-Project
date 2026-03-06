@@ -1,36 +1,36 @@
 cmake_minimum_required(VERSION 3.10)
 
-# Define headers and sources
-# =============================================================================
 set(SOURCES
-        common.cpp
-        body.cpp
-        renderer_geometry.cpp
-        renderer.cpp
-        normal_renderer.cpp
-        silhouette_renderer.cpp
-        basic_depth_renderer.cpp
-        model.cpp
-        region_model.cpp
-        depth_model.cpp
-        camera.cpp
-        loader_camera.cpp
-        color_histograms.cpp
-        modality.cpp
-        region_modality.cpp
-        depth_modality.cpp
-        texture_modality.cpp
-        link.cpp
-        constraint.cpp
-        soft_constraint.cpp
-        optimizer.cpp
-        detector.cpp 
-        static_detector.cpp
-        manual_detector.cpp
-        refiner.cpp
-        publisher.cpp
-        subscriber.cpp
-        tracker.cpp)
+    common.cpp
+    body.cpp
+    renderer_geometry.cpp
+    renderer.cpp
+    normal_renderer.cpp
+    silhouette_renderer.cpp
+    basic_depth_renderer.cpp
+    model.cpp
+    region_model.cpp
+    depth_model.cpp
+    camera.cpp
+    loader_camera.cpp
+    color_histograms.cpp
+    modality.cpp
+    region_modality.cpp
+    depth_modality.cpp
+    texture_modality.cpp
+    link.cpp
+    constraint.cpp
+    soft_constraint.cpp
+    optimizer.cpp
+    detector.cpp 
+    static_detector.cpp
+    refiner.cpp
+    publisher.cpp
+    subscriber.cpp
+    tracker.cpp
+    unity_color_camera.cpp
+    unity_bridge.cpp
+)
 
 set(HEADERS 
         ../include/m3t/common.h
@@ -56,58 +56,26 @@ set(HEADERS
         ../include/m3t/optimizer.h
         ../include/m3t/detector.h
         ../include/m3t/static_detector.h
-        ../include/m3t/manual_detector.h
         ../include/m3t/refiner.h
         ../include/m3t/publisher.h
         ../include/m3t/subscriber.h
         ../include/m3t/tracker.h
-        ../include/m3t/generator.h)
+        ../include/m3t/generator.h
+        ../include/m3t/unity_color_camera.h)
 
-if (USE_AZURE_KINECT)
-    list(APPEND SOURCES azure_kinect_camera.cpp)
-    list(APPEND HEADERS ../include/m3t/azure_kinect_camera.h)
-endif ()
-if (USE_REALSENSE)
-    list(APPEND SOURCES realsense_camera.cpp)
-    list(APPEND HEADERS ../include/m3t/realsense_camera.h)
-endif ()
+# Create the Library
+add_library(m3t SHARED ${SOURCES})
 
+# Link the libraries
+target_link_libraries(m3t PUBLIC 
+    Eigen3::Eigen 
+    ${OpenCV_LIBRARIES}
+    ${GRAPHICS_LIBS}
+)
 
-# Define libraries
-# =============================================================================
-set(LIBRARIES Eigen3::Eigen OpenGL::GL GLEW::GLEW glfw ${OpenCV_LIBRARIES} OpenMP::OpenMP_CXX)
-if (UNIX)
-    list(APPEND LIBRARIES pthread stdc++fs)
-endif ()
-if (USE_AZURE_KINECT)
-    list(APPEND LIBRARIES k4a::k4a)
-endif ()
-if (USE_REALSENSE)
-    list(APPEND LIBRARIES ${realsense2_LIBRARY})
-endif ()
-
-
-# Define target
-# =============================================================================
-add_library(m3t STATIC ${SOURCES} ${HEADERS})
-target_link_libraries(m3t PUBLIC ${LIBRARIES})
-target_include_directories(m3t PUBLIC  
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
-        $<INSTALL_INTERFACE:include>)
+# Set Include Paths
 target_include_directories(m3t PUBLIC 
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../third_party>
-        $<INSTALL_INTERFACE:include>)
-set_target_properties(m3t PROPERTIES PUBLIC_HEADER "${HEADERS}")
-
-
-# Install
-# =============================================================================
-install(TARGETS m3t
-        EXPORT m3t_target
-        LIBRARY DESTINATION lib
-        PUBLIC_HEADER DESTINATION include/m3t)
-install(DIRECTORY ../third_party/
-        DESTINATION include)
-install(EXPORT m3t_target 
-        FILE M3TConfig.cmake
-        DESTINATION lib/cmake/M3T)
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../third_party>
+    ${EIGEN3_INCLUDE_DIR}
+)

@@ -3,6 +3,12 @@
 // German Aerospace Center (DLR)
 
 #include <m3t/region_model.h>
+#include <android/log.h>
+
+#define LOG_TAG "M3T_NATIVE"
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+
 namespace m3t {
 
 RegionModel::RegionModel(const std::string &name,
@@ -33,7 +39,7 @@ bool RegionModel::SetUp() {
   if (!metafile_path_.empty())
     if (!LoadMetaData()) return false;
 
-  // Check if all required objects are set up
+    // Check if all required objects are set up
   if (!body_ptr_->set_up()) {
     std::cerr << "Body " << body_ptr_->name() << " was not set up" << std::endl;
     return false;
@@ -260,23 +266,27 @@ bool RegionModel::LoadModel() {
   std::ifstream ifs{model_path_, std::ios::in | std::ios::binary};
   if (!ifs.is_open() || ifs.fail()) {
     ifs.close();
+    LOGI("Could not open model file: %s", model_path_.c_str());
     std::cout << "Could not open model file " << model_path_ << std::endl;
     return false;
   }
 
   if (!LoadModelParameters(kVersionID, kModelType, &ifs)) {
+    LOGI("Model file was generated using different model parameters: %s", model_path_.c_str());
     std::cout << "Model file " << model_path_
               << " was generated using different model parameters" << std::endl;
     return false;
   }
 
   if (!LoadBodyData(body_ptr_, &ifs)) {
+    LOGI("Model file was generated using different body parameters: %s", model_path_.c_str());
     std::cout << "Model file " << model_path_
               << " was generated using different body parameters" << std::endl;
     return false;
   }
 
   if (!LoadAssociatedBodyData(&ifs)) {
+    LOGI("Model file was was generated using different associated body parameters or configurations: %s", model_path_.c_str());
     std::cout << "Model file " << model_path_
               << " was generated using different associated body parameters or "
                  "configurations"

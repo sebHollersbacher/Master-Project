@@ -3,13 +3,19 @@
 
 #include "m3t/silhouette_renderer.h"
 
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
+#include <GLES3/gl3.h>
+#include <GLES3/gl3ext.h>
+
+#include <android/log.h>
+
+#define LOG_TAG "M3T_NATIVE"
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
 namespace m3t {
 
 std::string SilhouetteRendererCore::vertex_shader_code_ =
-    "#version 330 core\n"
+    "#version 300 es\n"
     "layout(location = 0) in vec3 aPos;\n"
     "uniform mat4 Trans;\n"
     "void main()\n"
@@ -18,12 +24,22 @@ std::string SilhouetteRendererCore::vertex_shader_code_ =
     "}";
 
 std::string SilhouetteRendererCore::fragment_shader_code_ =
-    "#version 330 core\n"
+    "#version 300 es\n"
+    "precision highp float;\n"
     "uniform float SilhouetteID;\n"
-    "out float FragColor;\n"
+    "out vec4 FragColor;\n"
     "void main()\n"
     "{\n"
-    "  FragColor = SilhouetteID;\n"
+    "  // 1. Red Channel: Silhouette ID (Normalized to 0-1 for 8-bit color)\n"
+    "  float r = SilhouetteID;\n"
+    "  \n"
+    "  // 2. Green & Blue Channels: Pack 16-bit depth (gl_FragCoord.z)\n"
+    "  float depth = gl_FragCoord.z;\n"
+    "  highp float depth16 = floor(depth * 65535.0);\n"
+    "  float g = floor(depth16 / 256.0) / 255.0; // High byte\n"
+    "  float b = mod(depth16, 256.0) / 255.0;  // Low byte\n"
+    "  \n"
+    "  FragColor = vec4(r, g, b, 1.0);\n"
     "}";
 
 SilhouetteRendererCore::~SilhouetteRendererCore() {
@@ -118,46 +134,97 @@ bool SilhouetteRendererCore::FetchSilhouetteImage(cv::Mat *silhouette_image) {
   return true;
 }
 
-bool SilhouetteRendererCore::FetchDepthImage(cv::Mat *depth_image) {
+bool SilhouetteRendererCore::FetchDepthImage(cv::Mat *depth_image,
+                                             cv::Mat *silhouette_image) {
   if (!initial_set_up_ || !image_rendered_) return false;
   if (depth_image_fetched_) return true;
+
   renderer_geometry_ptr_->MakeContextCurrent();
-  glPixelStorei(GL_PACK_ALIGNMENT, (depth_image->step & 3) ? 1 : 4);
-  glPixelStorei(GL_PACK_ROW_LENGTH,
-                GLint(depth_image->step / depth_image->elemSize()));
+
+  // Create a temporary buffer for the RGBA data
+  std::vector<uchar> rgba_buffer(image_width_ * image_height_ * 4);
+
   glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
-  glBindRenderbuffer(GL_RENDERBUFFER, rbo_depth_);
-  glReadPixels(0, 0, image_width_, image_height_, GL_DEPTH_COMPONENT,
-               GL_UNSIGNED_SHORT, depth_image->data);
-  glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+  // (This should be your existing glReadPixels call)
+  glReadPixels(0, 0, image_width_, image_height_, GL_RGBA, GL_UNSIGNED_BYTE,
+               rgba_buffer.data());
+
+  // In FetchDepthImage, after glReadPixels:
+  int centerX = image_width_ / 2;
+  int centerY = image_height_ / 2;
+  int pixelIdx = (centerY * image_width_ + centerX) * 4;
+
+  LOGI("RGBA CENTER (%d,%d): R:%d G:%d B:%d", centerX, centerY,
+       rgba_buffer[pixelIdx], rgba_buffer[pixelIdx + 1],
+       rgba_buffer[pixelIdx + 2]);
+
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   renderer_geometry_ptr_->DetachContext();
+
+  // 3. Unpack the data into both matrices
+  ushort *depth_ptr = (ushort *)depth_image->data;
+  uchar *sil_ptr = silhouette_image->data;
+
+  for (int i = 0; i < image_width_ * image_height_; ++i) {
+    int idx = i * 4;
+
+    // Red Channel -> Silhouette ID
+    sil_ptr[i] = rgba_buffer[idx];
+
+    // Green & Blue -> 16-bit Depth
+    uchar g = rgba_buffer[idx + 1];
+    uchar b = rgba_buffer[idx + 2];
+    depth_ptr[i] = (ushort(g) << 8) | ushort(b);
+  }
   depth_image_fetched_ = true;
+  silhouette_image_fetched_ = true;  // Mark both as fetched
   return true;
 }
 
 void SilhouetteRendererCore::CreateBufferObjects() {
   renderer_geometry_ptr_->MakeContextCurrent();
 
-  // Initialize renderbuffer bodies_render_data
+  // Color Renderbuffer - Use GL_RGBA8 specifically
   glGenRenderbuffers(1, &rbo_silhouette_);
   glBindRenderbuffer(GL_RENDERBUFFER, rbo_silhouette_);
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_R8, image_width_, image_height_);
-  glBindRenderbuffer(GL_RENDERBUFFER, 0);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, image_width_, image_height_);
 
+  // Depth Renderbuffer - Use GL_DEPTH_COMPONENT24 for better compatibility
+  // with RGBA8
   glGenRenderbuffers(1, &rbo_depth_);
   glBindRenderbuffer(GL_RENDERBUFFER, rbo_depth_);
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, image_width_,
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, image_width_,
                         image_height_);
-  glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
   // Initialize framebuffer bodies_render_data
   glGenFramebuffers(1, &fbo_);
   glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+
+  // Attach Color
   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                             GL_RENDERBUFFER, rbo_silhouette_);
+
+  // Attach Depth
   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                             GL_RENDERBUFFER, rbo_depth_);
+
+  // check for error
+  GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  if (status == GL_FRAMEBUFFER_COMPLETE) {
+    LOGI("FBO SUCCESS: Framebuffer is complete (0x%x)", status);
+  } else {
+    LOGE("FBO STILL INCOMPLETE: 0x%x", status);
+  }
+
+  GLint linkStatus;
+  glGetProgramiv(shader_program_, GL_LINK_STATUS, &linkStatus);
+  if (linkStatus != GL_TRUE) {
+    char log[512];
+    glGetProgramInfoLog(shader_program_, 512, NULL, log);
+    LOGE("SHADER LINK ERROR: %s", log);
+  }
+
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   renderer_geometry_ptr_->DetachContext();
 }
@@ -251,7 +318,7 @@ bool FullSilhouetteRenderer::FetchDepthImage() {
     std::cerr << "Set up renderer " << name_ << " first" << std::endl;
     return false;
   }
-  return core_.FetchDepthImage(&depth_image_);
+  return core_.FetchDepthImage(&depth_image_, &silhouette_image_);
 }
 
 IDType FullSilhouetteRenderer::id_type() const { return id_type_; }
@@ -382,7 +449,8 @@ bool FocusedSilhouetteRenderer::FetchDepthImage() {
     std::cerr << "Set up renderer " << name_ << " first" << std::endl;
     return false;
   }
-  return core_.FetchDepthImage(&focused_depth_image_);
+  return core_.FetchDepthImage(&focused_depth_image_,
+                               &focused_silhouette_image_);
 }
 
 IDType FocusedSilhouetteRenderer::id_type() const { return id_type_; }

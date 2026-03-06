@@ -1,18 +1,23 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2023 Manuel Stoiber, German Aerospace Center (DLR)
 
+#include <android/log.h>
 #include <m3t/normal_renderer.h>
 
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
+#include <GLES3/gl3.h>
+#include <GLES3/gl3ext.h>
+
+#define LOG_TAG "M3T_NATIVE"
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
 namespace m3t {
 
 std::string NormalRendererCore::vertex_shader_code_ =
-    "#version 330 core\n"
+    "#version 300 es\n"
     "layout(location = 0) in vec3 aPos;\n"
     "layout(location = 1) in vec3 aNormal;\n"
-    "flat out vec3 Normal;\n"
+    "out highp vec3 Normal;\n"
     "uniform mat4 Trans;\n"
     "uniform mat3 Rot;\n"
     "void main()\n"
@@ -22,12 +27,14 @@ std::string NormalRendererCore::vertex_shader_code_ =
     "}";
 
 std::string NormalRendererCore::fragment_shader_code_ =
-    "#version 330 core\n"
-    "flat in vec3 Normal;\n"
+    "#version 300 es\n"
+    "precision highp float;\n"
+    "in highp vec3 Normal;\n"
     "out vec4 FragColor;\n"
     "void main()\n"
     "{\n"
-    "	 FragColor = vec4(0.5 - 0.5 * Normal, 1.0).zyxw;\n"
+    "  vec3 n = normalize(Normal);\n"
+    "  FragColor = vec4(0.5 + 0.5 * n, 1.0);\n"
     "}";
 
 NormalRendererCore::~NormalRendererCore() {
@@ -112,7 +119,7 @@ bool NormalRendererCore::FetchNormalImage(cv::Mat *normal_image) {
                 GLint(normal_image->step / normal_image->elemSize()));
   glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
   glBindRenderbuffer(GL_RENDERBUFFER, rbo_normal_);
-  glReadPixels(0, 0, image_width_, image_height_, GL_BGRA, GL_UNSIGNED_BYTE,
+  glReadPixels(0, 0, image_width_, image_height_, GL_RGBA, GL_UNSIGNED_BYTE,
                normal_image->data);
   glBindRenderbuffer(GL_RENDERBUFFER, 0);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);

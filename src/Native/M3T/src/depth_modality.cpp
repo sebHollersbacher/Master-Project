@@ -885,7 +885,6 @@ bool DepthModality::FindCorrespondence(
 
 void DepthModality::ShowAndSaveImage(const std::string &title, int save_index,
                                      const cv::Mat &image) const {
-  if (display_visualization_) cv::imshow(title, image);
   if (save_visualizations_) {
     std::filesystem::path path{
         save_directory_ /

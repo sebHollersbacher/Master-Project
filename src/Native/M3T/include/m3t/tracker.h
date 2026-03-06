@@ -18,7 +18,6 @@
 #include <m3t/renderer_geometry.h>
 #include <m3t/soft_constraint.h>
 #include <m3t/subscriber.h>
-#include <m3t/viewer.h>
 
 #include <chrono>
 #include <memory>
@@ -81,7 +80,7 @@ class Tracker {
           bool start_tracking_after_detection = false,
           const std::chrono::milliseconds &cycle_duration =
               std::chrono::milliseconds{33},
-          int visualization_time = 0, int viewer_time = 1);
+          int visualization_time = 0);
   Tracker(const std::string &name, const std::filesystem::path &metafile_path);
   bool SetUp(bool set_up_all_objects = true);
 
@@ -95,9 +94,6 @@ class Tracker {
   bool AddRefiner(const std::shared_ptr<Refiner> &refiner_ptr);
   bool DeleteRefiner(const std::string &name);
   void ClearRefiners();
-  bool AddViewer(const std::shared_ptr<Viewer> &viewer_ptr);
-  bool DeleteViewer(const std::string &name);
-  void ClearViewers();
   bool AddPublisher(const std::shared_ptr<Publisher> &publisher_ptr);
   bool DeletePublisher(const std::string &name);
   void ClearPublishers();
@@ -114,7 +110,6 @@ class Tracker {
   void set_start_tracking_after_detection(bool start_tracking_after_detection);
   void set_cycle_duration(const std::chrono::milliseconds &cycle_duration);
   void set_visualization_time(int visualization_time);
-  void set_viewer_time(int viewer_time);
 
   // Main method
   bool RunTrackerProcess(bool execute_detection = false,
@@ -135,7 +130,6 @@ class Tracker {
   bool ExecuteStartingStep(int iteration);
   bool ExecuteTrackingStep(int iteration);
   bool UpdatePublishers(int iteration);
-  bool UpdateViewers(int iteration);
 
   // Individual steps of detecting step for advanced use
   void MoveBackPoses(const std::set<std::string> &names);
@@ -164,7 +158,6 @@ class Tracker {
   const std::vector<std::shared_ptr<Optimizer>> &optimizer_ptrs() const;
   const std::vector<std::shared_ptr<Detector>> &detector_ptrs() const;
   const std::vector<std::shared_ptr<Refiner>> &refiner_ptrs() const;
-  const std::vector<std::shared_ptr<Viewer>> &viewer_ptrs() const;
   const std::vector<std::shared_ptr<Publisher>> &publisher_ptrs() const;
   const std::vector<std::shared_ptr<Subscriber>> &subscriber_ptrs() const;
   const std::vector<std::shared_ptr<Link>> &link_ptrs() const;
@@ -190,7 +183,6 @@ class Tracker {
   bool start_tracking_after_detection() const;
   const std::chrono::milliseconds &cycle_duration() const;
   int visualization_time() const;
-  int viewer_time() const;
   bool set_up() const;
 
  private:
@@ -209,7 +201,6 @@ class Tracker {
   std::vector<std::shared_ptr<Optimizer>> optimizer_ptrs_{};
   std::vector<std::shared_ptr<Detector>> detector_ptrs_{};
   std::vector<std::shared_ptr<Refiner>> refiner_ptrs_{};
-  std::vector<std::shared_ptr<Viewer>> viewer_ptrs_{};
   std::vector<std::shared_ptr<Publisher>> publisher_ptrs_{};
   std::vector<std::shared_ptr<Subscriber>> subscriber_ptrs_{};
   std::vector<std::shared_ptr<Constraint>> constraint_ptrs_{};
@@ -234,7 +225,6 @@ class Tracker {
   bool start_tracking_after_detection_ = false;
   std::chrono::milliseconds cycle_duration_{33};
   int visualization_time_ = 0;
-  int viewer_time_ = 1;
 
   // Internally used objects
   std::vector<std::shared_ptr<Detector>> detecting_detector_ptrs_{};

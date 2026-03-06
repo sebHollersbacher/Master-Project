@@ -4,8 +4,9 @@
 #ifndef M3T_INCLUDE_M3T_RENDERER_GEOMETRY_H_
 #define M3T_INCLUDE_M3T_RENDERER_GEOMETRY_H_
 
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
+#include <GLES3/gl3.h>
+#include <GLES3/gl3ext.h>
+
 #include <m3t/body.h>
 #include <m3t/common.h>
 
@@ -39,10 +40,6 @@ namespace m3t {
  * renderer geometry.
  */
 class RendererGeometry {
- private:
-  // Count the number of instances to manage the GLFW library
-  static int n_instances_;
-
  public:
   // Data Structs
   struct RenderDataBody {
@@ -86,7 +83,6 @@ class RendererGeometry {
   std::string name_{};
   std::vector<std::shared_ptr<Body>> body_ptrs_;
   std::vector<RenderDataBody> render_data_bodies_;
-  GLFWwindow *window_ = nullptr;  // Only used to hold a glfw context
   std::mutex mutex_;
   bool initial_set_up_ = false;
   bool set_up_ = false;

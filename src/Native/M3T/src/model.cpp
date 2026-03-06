@@ -2,6 +2,11 @@
 // Copyright (c) 2023 Manuel Stoiber, German Aerospace Center (DLR)
 
 #include <m3t/model.h>
+#include <android/log.h>
+
+#define LOG_TAG "M3T_NATIVE"
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
 namespace m3t {
 
@@ -274,9 +279,20 @@ bool Model::LoadBodyData(const std::shared_ptr<Body> &body_ptr,
             sizeof(geometry_enable_culling));
   ifs->read((char *)(&maximum_body_diameter), sizeof(maximum_body_diameter));
   ifs->read((char *)(geometry2body_pose.data()), sizeof(geometry2body_pose));
-  return Equivalent(std::filesystem::path{geometry_path_string},
-                    body_ptr->geometry_path()) &&
-         geometry_unit_in_meter == body_ptr->geometry_unit_in_meter() &&
+
+  LOGI("=== LoadBodyData ===");
+  LOGI("File Path in .bin: %s", geometry_path_string.c_str());
+  LOGI("Current Body Path: %s", body_ptr->geometry_path().string().c_str());
+  
+  LOGI("1. Unit in Meter: bin(%f) vs body(%f)", geometry_unit_in_meter, body_ptr->geometry_unit_in_meter());
+  LOGI("2. CCW: bin(%d) vs body(%d)", geometry_counterclockwise, body_ptr->geometry_counterclockwise());
+  LOGI("3. Culling: bin(%d) vs body(%d)", geometry_enable_culling, body_ptr->geometry_enable_culling());
+  LOGI("4. Diameter: bin(%f) vs body(%f)", maximum_body_diameter, body_ptr->maximum_body_diameter());
+  
+  bool pose_match = geometry2body_pose.matrix() == body_ptr->geometry2body_pose().matrix();
+  LOGI("5. Pose Matrix Match: %s", pose_match ? "YES" : "NO");
+
+  return geometry_unit_in_meter == body_ptr->geometry_unit_in_meter() &&
          geometry_counterclockwise == body_ptr->geometry_counterclockwise() &&
          geometry_enable_culling == body_ptr->geometry_enable_culling() &&
          maximum_body_diameter == body_ptr->maximum_body_diameter() &&

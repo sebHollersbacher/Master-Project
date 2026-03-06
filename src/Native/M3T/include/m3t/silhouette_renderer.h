@@ -40,7 +40,7 @@ class SilhouetteRendererCore {
   bool StartRendering(const Eigen::Matrix4f &projection_matrix,
                       const Transform3fA &world2camera_pose, IDType id_type);
   bool FetchSilhouetteImage(cv::Mat *silhouette_image);
-  bool FetchDepthImage(cv::Mat *depth_image);
+  bool FetchDepthImage(cv::Mat *depth_image, cv::Mat *silhouette_image);
 
  private:
   // Helper methods

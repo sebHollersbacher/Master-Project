@@ -2,24 +2,21 @@
 // Copyright (c) 2023 Manuel Stoiber, German Aerospace Center (DLR)
 
 #include <m3t/renderer_geometry.h>
+#include <android/log.h>
+
+#define LOG_TAG "M3T_NATIVE"
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
 namespace m3t {
-
-int RendererGeometry::n_instances_ = 0;
 
 RendererGeometry::RendererGeometry(const std::string &name) : name_{name} {}
 
 RendererGeometry::~RendererGeometry() {
   if (initial_set_up_) {
-    glfwMakeContextCurrent(window_);
     for (auto &render_data_body : render_data_bodies_) {
       DeleteGLVertexObjects(&render_data_body);
     }
-    glfwMakeContextCurrent(0);
-    glfwDestroyWindow(window_);
-    window_ = nullptr;
-    n_instances_--;
-    if (n_instances_ == 0) glfwTerminate();
   }
 }
 
@@ -36,45 +33,13 @@ bool RendererGeometry::SetUp() {
     }
   }
 
-  // Set up GLFW
+  // Set up Context (Only for Desktop - Unity handles this on Android)
   if (!initial_set_up_) {
-    if (!glfwInit()) {
-      std::cerr << "Failed to initialize GLFW" << std::endl;
-      return false;
-    }
-
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
-    glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
-
-    window_ = glfwCreateWindow(640, 480, "window", nullptr, nullptr);
-    if (window_ == nullptr) {
-      std::cerr << "Failed to create GLFW window" << std::endl;
-      glfwTerminate();
-      return false;
-    }
-
-    glfwMakeContextCurrent(window_);
-    glewExperimental = true;
-    if (glewInit() != GLEW_OK) {
-      std::cerr << "Failed to initialize GLEW" << std::endl;
-      glfwDestroyWindow(window_);
-      window_ = nullptr;
-      glfwTerminate();
-      return false;
-    }
-    glfwMakeContextCurrent(nullptr);
-
-    n_instances_++;
     initial_set_up_ = true;
   }
 
   // Set up bodies
-  glfwMakeContextCurrent(window_);
   for (auto &render_data_body : render_data_bodies_) {
-    // Assemble vertex data
     std::vector<float> vertex_data;
     AssembleVertexData(*render_data_body.body_ptr, &vertex_data);
     render_data_body.n_vertices = unsigned(vertex_data.size()) / 6;
@@ -83,7 +48,6 @@ bool RendererGeometry::SetUp() {
     if (set_up_) DeleteGLVertexObjects(&render_data_body);
     CreateGLVertexObjects(vertex_data, &render_data_body);
   }
-  glfwMakeContextCurrent(nullptr);
 
   set_up_ = true;
   return true;
@@ -111,9 +75,7 @@ bool RendererGeometry::AddBody(const std::shared_ptr<Body> &body_ptr) {
     render_data_body.n_vertices = unsigned(vertex_data.size()) / 6;
 
     // Create GL Vertex objects
-    glfwMakeContextCurrent(window_);
     CreateGLVertexObjects(vertex_data, &render_data_body);
-    glfwMakeContextCurrent(nullptr);
   } else if (set_up_ && !body_ptr->set_up()) {
     set_up_ = false;
   }
@@ -130,9 +92,7 @@ bool RendererGeometry::DeleteBody(const std::string &name) {
     if (name == body_ptrs_[i]->name()) {
       body_ptrs_.erase(begin(body_ptrs_) + i);
       if (set_up_) {
-        glfwMakeContextCurrent(window_);
         DeleteGLVertexObjects(&render_data_bodies_[i]);
-        glfwMakeContextCurrent(nullptr);
       }
       render_data_bodies_.erase(begin(render_data_bodies_) + i);
       return true;
@@ -145,34 +105,19 @@ bool RendererGeometry::DeleteBody(const std::string &name) {
 void RendererGeometry::ClearBodies() {
   const std::lock_guard<std::mutex> lock{mutex_};
   if (set_up_) {
-    glfwMakeContextCurrent(window_);
     for (auto &render_data_body : render_data_bodies_) {
       DeleteGLVertexObjects(&render_data_body);
     }
-    glfwMakeContextCurrent(nullptr);
   }
   render_data_bodies_.clear();
   body_ptrs_.clear();
 }
 
 bool RendererGeometry::MakeContextCurrent() {
-  mutex_.lock();
-  if (!initial_set_up_) {
-    std::cerr << "Set up renderer geometry " << name_ << " first" << std::endl;
-    mutex_.unlock();
-    return false;
-  }
-  glfwMakeContextCurrent(window_);
   return true;
 }
 
 bool RendererGeometry::DetachContext() {
-  if (!initial_set_up_) {
-    std::cerr << "Set up renderer geometry " << name_ << " first" << std::endl;
-    return false;
-  }
-  glfwMakeContextCurrent(nullptr);
-  mutex_.unlock();
   return true;
 }
 

@@ -9,15 +9,14 @@ Tracker::Tracker(const std::string &name, int n_corr_iterations,
                  int n_update_iterations, bool synchronize_cameras,
                  bool start_tracking_after_detection,
                  const std::chrono::milliseconds &cycle_duration,
-                 int visualization_time, int viewer_time)
+                 int visualization_time)
     : name_{name},
       n_corr_iterations_{n_corr_iterations},
       n_update_iterations_{n_update_iterations},
       synchronize_cameras_{synchronize_cameras},
       start_tracking_after_detection_{start_tracking_after_detection},
       cycle_duration_{cycle_duration},
-      visualization_time_{visualization_time},
-      viewer_time_{viewer_time} {}
+      visualization_time_{visualization_time} {}
 
 Tracker::Tracker(const std::string &name,
                  const std::filesystem::path &metafile_path)
@@ -111,30 +110,6 @@ void Tracker::ClearRefiners() {
   refiner_ptrs_.clear();
 }
 
-bool Tracker::AddViewer(const std::shared_ptr<Viewer> &viewer_ptr) {
-  set_up_ = false;
-  if (!AddPtrIfNameNotExists(viewer_ptr, &viewer_ptrs_)) {
-    std::cerr << "Viewer " << viewer_ptr->name() << " already exists"
-              << std::endl;
-    return false;
-  }
-  return true;
-}
-
-bool Tracker::DeleteViewer(const std::string &name) {
-  set_up_ = false;
-  if (!DeletePtrIfNameExists(name, &viewer_ptrs_)) {
-    std::cerr << "Viewer " << name << " not found" << std::endl;
-    return false;
-  }
-  return true;
-}
-
-void Tracker::ClearViewers() {
-  set_up_ = false;
-  viewer_ptrs_.clear();
-}
-
 bool Tracker::AddPublisher(const std::shared_ptr<Publisher> &publisher_ptr) {
   set_up_ = false;
   if (!AddPtrIfNameNotExists(publisher_ptr, &publisher_ptrs_)) {
@@ -216,8 +191,6 @@ void Tracker::set_visualization_time(int visualization_time) {
   visualization_time_ = visualization_time;
 }
 
-void Tracker::set_viewer_time(int viewer_time) { viewer_time_ = viewer_time; }
-
 bool Tracker::RunTrackerProcess(bool execute_detection, bool start_tracking,
                                 const std::set<std::string> *names_detecting,
                                 const std::set<std::string> *names_starting) {
@@ -254,7 +227,6 @@ bool Tracker::RunTrackerProcess(bool execute_detection, bool start_tracking,
     if (!ExecuteTrackingStep(iteration)) return false;
     tracking_mutex_.unlock();
     if (!UpdatePublishers(iteration)) return false;
-    if (!UpdateViewers(iteration)) return false;
     if (quit_tracker_process_) return true;
     if (!synchronize_cameras_) WaitUntilCycleEnds(begin);
   }
@@ -370,27 +342,6 @@ bool Tracker::UpdatePublishers(int iteration) {
   return true;
 }
 
-bool Tracker::UpdateViewers(int iteration) {
-  if (!viewer_ptrs_.empty()) {
-    for (auto &viewer_ptr : viewer_ptrs_) {
-      viewer_ptr->UpdateViewer(iteration);
-    }
-    char key = cv::waitKey(viewer_time_);
-    if (key == 'd') {
-      ExecuteDetection(false);
-    } else if (key == 'x') {
-      ExecuteDetection(true);
-    } else if (key == 't') {
-      StartTracking();
-    } else if (key == 's') {
-      StopTracking();
-    } else if (key == 'q') {
-      quit_tracker_process_ = true;
-    }
-  }
-  return true;
-}
-
 void Tracker::MoveBackPoses(const std::set<std::string> &names) {
   const m3t::Transform3fA background_pose{
       m3t::Transform3fA{Eigen::Translation3f{0.0f, 0.0f, -10.0f}}};
@@ -462,9 +413,6 @@ bool Tracker::VisualizeCorrespondences(int save_idx) {
     if (!modality_ptr->VisualizeCorrespondences(save_idx)) return false;
     if (modality_ptr->imshow_correspondence()) imshow_correspondences = true;
   }
-  if (imshow_correspondences) {
-    if (cv::waitKey(visualization_time_) == 'q') return false;
-  }
   return true;
 }
 
@@ -494,9 +442,6 @@ bool Tracker::VisualizeOptimization(int save_idx) {
     if (!modality_ptr->VisualizeOptimization(save_idx)) return false;
     if (modality_ptr->imshow_optimization()) imshow_pose_update = true;
   }
-  if (imshow_pose_update) {
-    if (cv::waitKey(visualization_time_) == 'q') return false;
-  }
   return true;
 }
 
@@ -522,9 +467,6 @@ bool Tracker::VisualizeResults(int save_idx) {
     if (!modality_ptr->VisualizeResults(save_idx)) return false;
     if (modality_ptr->imshow_result()) imshow_result = true;
   }
-  if (imshow_result) {
-    if (cv::waitKey(visualization_time_) == 'q') return false;
-  }
   return true;
 }
 
@@ -544,10 +486,6 @@ const std::vector<std::shared_ptr<Detector>> &Tracker::detector_ptrs() const {
 
 const std::vector<std::shared_ptr<Refiner>> &Tracker::refiner_ptrs() const {
   return refiner_ptrs_;
-}
-
-const std::vector<std::shared_ptr<Viewer>> &Tracker::viewer_ptrs() const {
-  return viewer_ptrs_;
 }
 
 const std::vector<std::shared_ptr<Publisher>> &Tracker::publisher_ptrs() const {
@@ -630,8 +568,6 @@ const std::chrono::milliseconds &Tracker::cycle_duration() const {
 
 int Tracker::visualization_time() const { return visualization_time_; }
 
-int Tracker::viewer_time() const { return viewer_time_; }
-
 bool Tracker::set_up() const { return set_up_; }
 
 bool Tracker::LoadMetaData() {
@@ -648,7 +584,6 @@ bool Tracker::LoadMetaData() {
                             &start_tracking_after_detection_);
   ReadOptionalValueFromYaml(fs, "cycle_duration", &i_cycle_duration);
   ReadOptionalValueFromYaml(fs, "visualization_time", &visualization_time_);
-  ReadOptionalValueFromYaml(fs, "viewer_time", &viewer_time_);
   cycle_duration_ = std::chrono::milliseconds{i_cycle_duration};
   fs.release();
   return true;
@@ -810,13 +745,6 @@ void Tracker::AssembleDerivedObjectPtrs() {
     }
   }
 
-  // Assemble objects from viewers
-  for (auto &viewer_ptr : viewer_ptrs_) {
-    AddPtrIfNameNotExists(viewer_ptr->camera_ptr(), &camera_ptrs_);
-    AddPtrIfNameNotExists(viewer_ptr->renderer_geometry_ptr(),
-                          &renderer_geometry_ptrs_);
-  }
-
   // Assemble objects from optimizers
   for (auto &optimizer_ptr : optimizer_ptrs_) {
     AddPtrsIfNameNotExists(optimizer_ptr->soft_constraint_ptrs(),
@@ -892,7 +820,7 @@ bool Tracker::SetUpAllObjects() {
          SetUpObjectPtrs(&model_ptrs_) && SetUpObjectPtrs(&modality_ptrs_) &&
          SetUpObjectPtrs(&link_ptrs_) && SetUpObjectPtrs(&constraint_ptrs_) &&
          SetUpObjectPtrs(&soft_constraint_ptrs_) &&
-         SetUpObjectPtrs(&optimizer_ptrs_) && SetUpObjectPtrs(&viewer_ptrs_) &&
+         SetUpObjectPtrs(&optimizer_ptrs_) &&
          SetUpObjectPtrs(&refiner_ptrs_) && SetUpObjectPtrs(&detector_ptrs_) &&
          SetUpObjectPtrs(&publisher_ptrs_) &&
          SetUpObjectPtrs(&subscriber_ptrs_);
@@ -912,7 +840,6 @@ bool Tracker::AreAllObjectsSetUp() {
          AreObjectPtrsSetUp(&constraint_ptrs_) &&
          AreObjectPtrsSetUp(&soft_constraint_ptrs_) &&
          AreObjectPtrsSetUp(&optimizer_ptrs_) &&
-         AreObjectPtrsSetUp(&viewer_ptrs_) &&
          AreObjectPtrsSetUp(&refiner_ptrs_) &&
          AreObjectPtrsSetUp(&detector_ptrs_) &&
          AreObjectPtrsSetUp(&publisher_ptrs_) &&

@@ -3,13 +3,14 @@
 
 #include <m3t/basic_depth_renderer.h>
 
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
+#include <GLES3/gl3.h>
+#include <GLES3/gl3ext.h>
 
 namespace m3t {
 
 std::string BasicDepthRendererCore::vertex_shader_code_ =
-    "#version 330 core\n"
+    "#version 300 es\n"
+    "precision mediump float;\n"
     "layout(location = 0) in vec3 aPos;\n"
     "uniform mat4 Trans;\n"
     "void main()\n"

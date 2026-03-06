@@ -3,6 +3,11 @@
 // German Aerospace Center (DLR)
 
 #include <m3t/texture_modality.h>
+#include <android/log.h>
+
+#define LOG_TAG "M3T_NATIVE"
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
 namespace m3t {
 
@@ -383,6 +388,46 @@ bool TextureModality::CalculateCorrespondences(int iteration,
     data_point.center(0) = center_f_camera(0) * fu_ / center_f_camera(2) + ppu_;
     data_point.center(1) = center_f_camera(1) * fv_ / center_f_camera(2) + ppv_;
   }
+  
+  static int debug_frame_counter = 0;
+  debug_frame_counter++;
+
+  if (debug_frame_counter % 30 == 0) {
+    // Get the Color Camera Image
+    cv::Mat debug_color;
+    color_camera_ptr_->image().copyTo(debug_color);
+
+    // Get the 16-bit Depth Image
+    cv::Mat raw_depth;
+    silhouette_renderer_ptr_->focused_depth_image().copyTo(raw_depth);
+
+    // Normalize 16-bit depth to 8-bit so it's visible as a normal PNG
+    cv::Mat debug_depth;
+    cv::normalize(raw_depth, debug_depth, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+    cv::cvtColor(debug_depth, debug_depth,
+                 cv::COLOR_GRAY2BGR);  // Make it color to draw red dots
+
+    // Draw the active data points on BOTH images
+    for (const auto &data_point : data_points_) {
+      // data_point.center contains the 2D (u, v) pixel coordinates
+      cv::Point2f pt(data_point.center.x(), data_point.center.y());
+
+      // Draw a 3-pixel solid red circle
+      cv::circle(debug_color, pt, 3, cv::Scalar(0, 0, 255), -1);
+      cv::circle(debug_depth, pt, 3, cv::Scalar(0, 0, 255), -1);
+    }
+
+    // Save to the Quest file system
+    std::string base_path =
+        "/storage/emulated/0/Android/data/com.DefaultCompany.VRTemplate/files/";
+    std::string color_path = base_path + "debug_color_" +
+                             std::to_string(debug_frame_counter) + ".png";
+    std::string depth_path = base_path + "debug_depth_" +
+                             std::to_string(debug_frame_counter) + ".png";
+
+    cv::imwrite(color_path, debug_color);
+    cv::imwrite(depth_path, debug_depth);
+  }
   return true;
 }
 
@@ -749,7 +794,7 @@ void TextureModality::SetUpFeatureDetectorAndMatcher() {
       // Look in both namespaces for SIFT
       feature_detector_ = cv::SIFT::create(sift_n_features_, sift_n_octave_layers_,
                                        sift_contrast_threshold_,
-                                       sift_edge_threshold_, sift_sigma_);
+          sift_edge_threshold_, sift_sigma_);
       feature_descriptor_ = cv::SIFT::create(
           sift_n_features_, sift_n_octave_layers_, sift_contrast_threshold_,
           sift_edge_threshold_, sift_sigma_);
@@ -1115,7 +1160,6 @@ bool TextureModality::IsPointUnoccludedModeled(
 
 void TextureModality::ShowAndSaveImage(const std::string &title, int save_index,
                                        const cv::Mat &image) const {
-  if (display_visualization_) cv::imshow(title, image);
   if (save_visualizations_) {
     std::filesystem::path path{
         save_directory_ /

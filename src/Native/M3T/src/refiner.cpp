@@ -156,9 +156,6 @@ bool Refiner::VisualizeCorrespondences(int save_idx) {
     if (!modality_ptr->VisualizeCorrespondences(save_idx)) return false;
     if (modality_ptr->imshow_correspondence()) imshow_correspondences = true;
   }
-  if (imshow_correspondences) {
-    if (cv::waitKey(visualization_time_) == 'q') return false;
-  }
   return true;
 }
 
@@ -186,9 +183,6 @@ bool Refiner::VisualizeOptimization(int save_idx) {
   for (auto &modality_ptr : used_modality_ptrs_) {
     if (!modality_ptr->VisualizeOptimization(save_idx)) return false;
     if (modality_ptr->imshow_optimization()) imshow_pose_update = true;
-  }
-  if (imshow_pose_update) {
-    if (cv::waitKey(visualization_time_) == 'q') return false;
   }
   return true;
 }
