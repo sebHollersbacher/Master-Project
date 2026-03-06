@@ -15,9 +15,6 @@ set(SOURCES
         depth_model.cpp
         camera.cpp
         loader_camera.cpp
-        viewer.cpp
-        image_viewer.cpp
-        normal_viewer.cpp 
         color_histograms.cpp
         modality.cpp
         region_modality.cpp
@@ -48,9 +45,6 @@ set(HEADERS
         ../include/m3t/depth_model.h
         ../include/m3t/camera.h
         ../include/m3t/loader_camera.h
-        ../include/m3t/viewer.h
-        ../include/m3t/image_viewer.h
-        ../include/m3t/normal_viewer.h
         ../include/m3t/color_histograms.h
         ../include/m3t/modality.h
         ../include/m3t/region_modality.h

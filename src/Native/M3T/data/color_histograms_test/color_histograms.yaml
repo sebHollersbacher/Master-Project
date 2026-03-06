@@ -1,4 +1,0 @@
-%YAML:1.2
-n_bins: 32
-learning_rate_f: 0.5
-learning_rate_b: 0.5

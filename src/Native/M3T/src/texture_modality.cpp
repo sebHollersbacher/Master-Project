@@ -745,27 +745,12 @@ void TextureModality::SetUpFeatureDetectorAndMatcher() {
       feature_descriptor_ = cv::BRISK::create(brisk_threshold_, brisk_octave_,
                                               brisk_pattern_scale_);
       break;
-    case DescriptorType::DAISY:
-      feature_detector_ =
-          cv::ORB::create(orb_n_features_, orb_scale_factor_, orb_n_levels_);
-      feature_descriptor_ = cv::xfeatures2d::DAISY::create(
-          daisy_radius_, daisy_q_radius_, daisy_q_theta_, daisy_q_hist_);
-      break;
-    case DescriptorType::FREAK:
-      feature_detector_ =
-          cv::ORB::create(orb_n_features_, orb_scale_factor_, orb_n_levels_);
-      feature_descriptor_ = cv::xfeatures2d::FREAK::create(
-          freak_orientation_normalized_, freak_scale_normalized_,
-          freak_pattern_scale_, freak_n_octaves_);
-      break;
     case DescriptorType::SIFT:
       // Look in both namespaces for SIFT
-      using namespace cv;
-      using namespace cv::xfeatures2d;
-      feature_detector_ = SIFT::create(sift_n_features_, sift_n_octave_layers_,
+      feature_detector_ = cv::SIFT::create(sift_n_features_, sift_n_octave_layers_,
                                        sift_contrast_threshold_,
                                        sift_edge_threshold_, sift_sigma_);
-      feature_descriptor_ = SIFT::create(
+      feature_descriptor_ = cv::SIFT::create(
           sift_n_features_, sift_n_octave_layers_, sift_contrast_threshold_,
           sift_edge_threshold_, sift_sigma_);
       break;
@@ -775,6 +760,8 @@ void TextureModality::SetUpFeatureDetectorAndMatcher() {
           orb_n_features_, orb_scale_factor_, orb_n_levels_);
 #endif
     case DescriptorType::ORB:
+    case DescriptorType::DAISY: // Falling back to ORB because DAISY requires xfeatures2d
+    case DescriptorType::FREAK: // Falling back to ORB because FREAK requires xfeatures2d
     default:
       feature_detector_ =
           cv::ORB::create(orb_n_features_, orb_scale_factor_, orb_n_levels_);
