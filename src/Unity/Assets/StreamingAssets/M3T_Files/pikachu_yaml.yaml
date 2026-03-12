@@ -1,5 +1,5 @@
 %YAML:1.2
-geometry_path: "/storage/emulated/0/Android/data/com.DefaultCompany.VRTemplate/files/pikachu_obj.obj"
+geometry_path: "/storage/emulated/0/Android/data/com.DefaultCompany.VRTemplate/files/pikachu.obj"
 geometry_unit_in_meter: 1.0
 geometry_counterclockwise: 1
 geometry_enable_culling: 1

@@ -55,7 +55,10 @@ void InitTracker(const char* body_meta_path, const char* model_bin_path) {
 
   // Camera
   g_camera = std::make_shared<m3t::UnityColorCamera>("unity_cam");
-  m3t::Intrinsics intrinsics{433.08f, 433.08f, 318.23f, 318.675, 640, 640};
+  m3t::Intrinsics intrinsics{216.54f, 216.54f, 159.115f, 159.3375f, 320, 320};
+  // m3t::Intrinsics intrinsics{324.81f, 324.81f, 238.6725f, 239.00625f, 480, 480};
+  // m3t::Intrinsics intrinsics{433.08f, 433.08f, 318.23f, 318.675, 640, 640};
+  // m3t::Intrinsics intrinsics{866.16f, 866.16f, 636.46f, 637.35f, 1280, 1280};
   g_camera->SetIntrinsics(intrinsics);
 
   // Body

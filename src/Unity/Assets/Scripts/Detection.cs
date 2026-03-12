@@ -9,34 +9,25 @@ public class Detection : MonoBehaviour
     [SerializeField] private ModelAsset pikachuModel;
     [SerializeField] private ModelAsset penModel;
     [SerializeField] private ModelAsset racketModel;
-    public TargetModel mode;
     
     private Model runtimeModel;
-    private Worker worker;
     private Tensor<float> inputTensor;
     private RenderTexture copyTexture;
+    private Dictionary<Constants.TargetModel, Worker> workers = new();
     
-    public enum TargetModel { Pikachu, Racket, Pen }
     public struct YoloResult
     {
         public Rect boundingBox;
         public List<Vector2> keypoints;
         public float confidence;
-        public TargetModel target;
         public bool isValid;
     }
 
     public void Start()
     {
-        runtimeModel = mode switch
-        {
-            TargetModel.Pikachu => ModelLoader.Load(pikachuModel),
-            TargetModel.Racket => ModelLoader.Load(racketModel),
-            TargetModel.Pen => ModelLoader.Load(penModel),
-            _ => throw new ArgumentOutOfRangeException()
-        };
-        
-        worker = new Worker(runtimeModel, BackendType.GPUCompute);
+        workers[Constants.TargetModel.Pikachu] = new Worker(ModelLoader.Load(pikachuModel), BackendType.GPUCompute);
+        workers[Constants.TargetModel.Racket] = new Worker(ModelLoader.Load(racketModel), BackendType.GPUCompute);
+        workers[Constants.TargetModel.Pen] = new Worker(ModelLoader.Load(penModel), BackendType.GPUCompute);
 
         inputTensor = new Tensor<float>(new TensorShape(1, 3, Constants.Height, Constants.Width));
         copyTexture = new RenderTexture(Constants.Width, Constants.Height, 0, RenderTextureFormat.ARGB32);
@@ -44,38 +35,36 @@ public class Detection : MonoBehaviour
 
     public void OnDestroy()
     {
-        worker?.Dispose();
+        foreach (var worker in workers.Values)
+        {
+            worker?.Dispose();
+        }
         inputTensor?.Dispose();
+        if (copyTexture != null) copyTexture.Release();
     }
 
-    public async Task<YoloResult> Inference(Texture cameraTexture, float minScore)
+    public async Task<YoloResult> Inference(Constants.TargetModel target, Texture cameraTexture, float minScore)
     {
-        Graphics.Blit(cameraTexture, copyTexture); // copy texture for Detection
+        // copy and scale if required
+        Graphics.Blit(cameraTexture, copyTexture); 
 
-        // 4. Fill the Tensor (Every Frame)
-        // TextureConverter automatically handles resizing if cam size != tensor size
-        // It also handles swizzling (RGBA -> RGB) if your tensor is 3 channels
         TextureConverter.ToTensor(copyTexture, inputTensor,
-            new TextureTransform().SetDimensions(Constants.Width, Constants.Height).SetTensorLayout(TensorLayout.NCHW));
+            new TextureTransform().SetTensorLayout(TensorLayout.NCHW));
 
-        // 5. Run Inference
-        worker.Schedule(inputTensor);
+        Worker activeWorker = workers[target];
+        activeWorker.Schedule(inputTensor);
 
-        // 6. Get Output (Non-blocking reference)
-        Tensor<float> outputTensor = worker.PeekOutput() as Tensor<float>;
-        int numFeatures = outputTensor.shape[1];
-        // TensorFloat(1, 41, 6300), 4 box + 1 score + 12 kpts * 3 = 41
-        // Fine Grid (Stride 8): 4800
-        // Medium Grid (Stride 16): 1200
-        // Coarse Grid (Stride 32): 300
-
+        Tensor<float> outputTensor = activeWorker.PeekOutput() as Tensor<float>;
+        int numFeatures = outputTensor.shape[1]; // 1-4: bounding box, 5: confidence, rest: keypoints
+        
         try
         {
             // get output to cpu
             Tensor<float> cpuTensor = await outputTensor.ReadbackAndCloneAsync();
             float[] data = cpuTensor.DownloadToArray();
             cpuTensor.Dispose();
-            return ParseKeypoints(data, minScore, numFeatures);
+            var result = ParseKeypoints(data, minScore, numFeatures);
+            return result;
         }
         catch (Exception e)
         {
@@ -88,16 +77,17 @@ public class Detection : MonoBehaviour
     {
         YoloResult result = new YoloResult { isValid = false, keypoints = new List<Vector2>() };
         
-        int numAnchors = 8400; 
+        // Fine Grid (Stride 8): 6400
+        // Medium Grid (Stride 16): 1600
+        // Coarse Grid (Stride 32): 400
+        int numAnchors = 8400; // for 640x640
         float highestScore = 0f;
         int bestAnchorIndex = -1;
 
-        // 1. Find the single best bounding box (Basic approach without full NMS)
+        // get most confident prediction
         for (int a = 0; a < numAnchors; a++)
         {
-            // The object confidence score is at feature index 4
             float score = data[4 * numAnchors + a];
-
             if (score > minScore && score > highestScore)
             {
                 highestScore = score;
@@ -105,22 +95,21 @@ public class Detection : MonoBehaviour
             }
         }
 
-        // 2. Extract keypoints only for that best anchor
+        // extract bounding box and keypoints
         if (bestAnchorIndex != -1)
         {
             result.isValid = true;
-            result.target = mode;
             result.confidence = highestScore;
             
-            // --- EXTRACT BOUNDING BOX ---
+            // bounding box
             float cx = data[(0 * numAnchors) + bestAnchorIndex];
             float cy = data[(1 * numAnchors) + bestAnchorIndex];
             float w  = data[(2 * numAnchors) + bestAnchorIndex];
             float h  = data[(3 * numAnchors) + bestAnchorIndex];
             
-            // Convert center coordinates to Unity Rect (xMin, yMin, width, height)
             result.boundingBox = new Rect(cx - (w / 2f), cy - (h / 2f), w, h);
             
+            // keypoints
             int numKeypoints = (numFeatures - 5) / 3;
             for (int k = 0; k < numKeypoints; k++)
             {

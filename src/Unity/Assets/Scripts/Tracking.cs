@@ -49,7 +49,7 @@ public class Tracking
 
     private async Task CopyFilesAsync(string path)
     {
-        string[] files = { "pikachu_yaml.yaml", "pikachu_obj.obj", "pikachu_model.bin" };
+        string[] files = { "pen_yaml.yaml", "pen.obj", "pen_model.bin", "pikachu_yaml.yaml", "pikachu.obj", "pikachu_model.bin", "racket_yaml.yaml", "racket.obj", "racket_model.bin" };
 
         foreach (var f in files)
         {
@@ -80,7 +80,7 @@ public class Tracking
     {
         if (!isInitialized || !image.IsCreated || image.Length == 0) return;
         int byteCount = image.Length * 4;
-
+        
         // Check buffer resizing
         if (_managedBuffer == null || _managedBuffer.Length != byteCount)
         {
@@ -94,7 +94,7 @@ public class Tracking
         byteView.CopyTo(_managedBuffer);
 
         // Send to C++
-        PassCameraFrame(_bufferHandle.AddrOfPinnedObject(), Constants.Width, Constants.Height);
+        PassCameraFrame(_bufferHandle.AddrOfPinnedObject(), 320, 320);
     }
     
     public void UpdateTrackerDetection(Matrix4x4 newDetection)

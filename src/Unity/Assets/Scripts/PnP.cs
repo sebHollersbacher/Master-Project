@@ -21,13 +21,13 @@ public class PnP
         float[] outputArr //  4 floats (vx, vy, x0, y0)
     );
 
-    public Matrix4x4? Solve(Detection.YoloResult result)
+    public Matrix4x4? Solve(Constants.TargetModel target, Detection.YoloResult result)
     {
-        return result.target switch
+        return target switch
         {
-            Detection.TargetModel.Pen => GetPenPoseMatrix(result.boundingBox, result.keypoints),
-            Detection.TargetModel.Racket => SolvePnP(result.keypoints, Constants.RacketPoints),
-            Detection.TargetModel.Pikachu => SolvePnP(result.keypoints, Constants.PikachuPoints),
+            Constants.TargetModel.Pen => GetPenPoseMatrix(result.boundingBox, result.keypoints),
+            Constants.TargetModel.Racket => SolvePnP(result.keypoints, Constants.RacketPoints),
+            Constants.TargetModel.Pikachu => SolvePnP(result.keypoints, Constants.PikachuPoints),
             _ => throw new ArgumentOutOfRangeException()
         };
     }

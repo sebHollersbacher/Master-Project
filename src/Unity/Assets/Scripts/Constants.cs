@@ -3,6 +3,8 @@ using UnityEngine;
 
 public class Constants
 {
+    public enum TargetModel { Pikachu, Racket, Pen }
+    
     public static readonly List<Vector3> PikachuPoints = new List<Vector3>()
     {
         new(-0.03317f, 0.032222f, 0.026848f),  // 0: Left Cheek
