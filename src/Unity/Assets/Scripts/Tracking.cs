@@ -13,24 +13,28 @@ public class Tracking
     private const string pluginName = "m3t";
 
     [DllImport(pluginName)]
-    private static extern void InitTracker(string a, string b);
-
-    [DllImport(pluginName)]
-    private static extern IntPtr GetRenderEventFunc();
-
+    private static extern void InitTracker();
+    
     [DllImport(pluginName)]
     private static extern void PassCameraFrame(IntPtr data, int w, int h);
     
     [DllImport(pluginName)]
-    private static extern void PassNewPose(ref Matrix4x4 newPose);
+    private static extern void AddObjectToTracker(Constants.TargetModel target, string bodyMetaPath, string modelBinPath);
 
     [DllImport(pluginName)]
-    private static extern void GetBodyPose(float[] outMatrix);
+    private static extern void PassNewPose(Constants.TargetModel target, ref Matrix4x4 newPose);
+
+    [DllImport(pluginName)]
+    private static extern void GetBodyPose(Constants.TargetModel target, float[] outMatrix);
+
+    [DllImport(pluginName)]
+    private static extern IntPtr GetRenderEventFunc();
+
+    
 
     private RenderTexture _resizeRT;
     private GCHandle _bufferHandle;
     private byte[] _managedBuffer;
-    private float[] poseArray = new float[16];
     private bool isInitialized;
 
     public async void Init()
@@ -40,7 +44,10 @@ public class Tracking
 
         string path = Application.persistentDataPath;
         await CopyFilesAsync(path);
-        InitTracker(Path.Combine(path, "pikachu_yaml.yaml"), Path.Combine(path, "pikachu_model.bin"));
+        InitTracker();
+        AddObjectToTracker(Constants.TargetModel.Pikachu, Path.Combine(path, "pikachu_yaml.yaml"), Path.Combine(path, "pikachu_model.bin"));
+        AddObjectToTracker(Constants.TargetModel.Racket, Path.Combine(path, "racket_yaml.yaml"), Path.Combine(path, "racket_model.bin"));
+        AddObjectToTracker(Constants.TargetModel.Pen, Path.Combine(path, "pen_yaml.yaml"), Path.Combine(path, "pen_model.bin"));
         GL.IssuePluginEvent(GetRenderEventFunc(), 1);
         Debug.Log("M3T Initialized via Script");
 
@@ -97,9 +104,9 @@ public class Tracking
         PassCameraFrame(_bufferHandle.AddrOfPinnedObject(), 320, 320);
     }
     
-    public void UpdateTrackerDetection(Matrix4x4 newDetection)
+    public void UpdateTrackerDetection(Constants.TargetModel target, Matrix4x4 newDetection)
     {
-        PassNewPose(ref newDetection);
+        PassNewPose(target, ref newDetection);
     }
 
     public void UpdateTracker()
@@ -107,9 +114,10 @@ public class Tracking
         GL.IssuePluginEvent(GetRenderEventFunc(), 2);
     }
 
-    public Matrix4x4 GetPose()
+    public Matrix4x4 GetPose(Constants.TargetModel target)
     {
-        GetBodyPose(poseArray);
+        float[] poseArray = new float[16];
+        GetBodyPose(target, poseArray);
 
         Matrix4x4 m3tMatrix = Matrix4x4.identity;
         for (int i = 0; i < 16; i++)

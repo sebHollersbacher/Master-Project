@@ -5,9 +5,10 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
-#include <vector>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
+#include <unordered_map>
+#include <vector>
 
 #include <m3t/body.h>
 #include <m3t/link.h>
@@ -35,16 +36,15 @@ int omp_get_num_threads() { return 1; }
 // --- Global Pointers ---
 static std::shared_ptr<m3t::Tracker> g_tracker;
 static std::shared_ptr<m3t::UnityColorCamera> g_camera;
-static std::shared_ptr<m3t::Body> g_body;
 static std::shared_ptr<m3t::RendererGeometry> g_renderer_geo;
-static std::shared_ptr<m3t::StaticDetector> g_static_detector;
-static std::mutex g_bridge_mutex;
-static std::shared_ptr<m3t::RegionModality> g_region_modality;
-static std::shared_ptr<m3t::TextureModality> g_texture_modality;
-static std::shared_ptr<m3t::RegionModel> g_region_model;
 static std::shared_ptr<m3t::FocusedSilhouetteRenderer> g_silhouette_renderer;
 
-static float g_safe_pose[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+static std::unordered_map<int, std::shared_ptr<m3t::Body>> g_bodies;
+static std::unordered_map<int, std::shared_ptr<m3t::StaticDetector>>
+    g_detectors;
+static std::unordered_map<int, std::array<float, 16>> g_safe_poses;
+
+static std::mutex g_bridge_mutex;
 static std::mutex g_pose_mutex;
 
 extern "C" {
@@ -56,42 +56,52 @@ void InitTracker(const char* body_meta_path, const char* model_bin_path) {
   // Camera
   g_camera = std::make_shared<m3t::UnityColorCamera>("unity_cam");
   m3t::Intrinsics intrinsics{216.54f, 216.54f, 159.115f, 159.3375f, 320, 320};
-  // m3t::Intrinsics intrinsics{324.81f, 324.81f, 238.6725f, 239.00625f, 480, 480};
-  // m3t::Intrinsics intrinsics{433.08f, 433.08f, 318.23f, 318.675, 640, 640};
-  // m3t::Intrinsics intrinsics{866.16f, 866.16f, 636.46f, 637.35f, 1280, 1280};
+  // m3t::Intrinsics intrinsics{324.81f, 324.81f, 238.6725f, 239.00625f, 480,
+  // 480}; m3t::Intrinsics intrinsics{433.08f, 433.08f, 318.23f, 318.675, 640,
+  // 640}; m3t::Intrinsics intrinsics{866.16f, 866.16f, 636.46f, 637.35f, 1280,
+  // 1280};
   g_camera->SetIntrinsics(intrinsics);
 
+  g_silhouette_renderer = std::make_shared<m3t::FocusedSilhouetteRenderer>(
+      "silhouette_renderer", g_renderer_geo, g_camera);
+}
+
+void AddObjectToTracker(int target_id, const char* body_meta_path,
+                        const char* model_bin_path) {
+  std::string name = std::to_string(target_id);
   // Body
-  g_body = std::make_shared<m3t::Body>("object_body", body_meta_path);
+  auto g_body = std::make_shared<m3t::Body>(name + "_body", body_meta_path);
   g_renderer_geo->AddBody(g_body);
-  g_region_model = std::make_shared<m3t::RegionModel>("region_model", g_body,
-                                                      model_bin_path);
+  auto g_region_model = std::make_shared<m3t::RegionModel>(
+      name + "_region_model", g_body, model_bin_path);
 
   // Link and Optimizer
-  auto link = std::make_shared<m3t::Link>("link", g_body);
-  auto optimizer = std::make_shared<m3t::Optimizer>("optimizer", link);
+  auto link = std::make_shared<m3t::Link>(name + "_link", g_body);
+  auto optimizer = std::make_shared<m3t::Optimizer>(name + "_optimizer", link);
   optimizer->set_tikhonov_parameter_rotation(100.0f);
   g_tracker->AddOptimizer(optimizer);
 
   // Region Modality
-  g_region_modality = std::make_shared<m3t::RegionModality>(
-      "region_modality", g_body, g_camera, g_region_model);
+  auto g_region_modality = std::make_shared<m3t::RegionModality>(
+      name + "_region_modality", g_body, g_camera, g_region_model);
   link->AddModality(g_region_modality);
 
   // Texture Modality
-  g_silhouette_renderer = std::make_shared<m3t::FocusedSilhouetteRenderer>(
-      "silhouette_renderer", g_renderer_geo, g_camera);
   g_silhouette_renderer->AddReferencedBody(g_body);
-  g_texture_modality = std::make_shared<m3t::TextureModality>(
-      "texture_modality", g_body, g_camera, g_silhouette_renderer);
+  auto g_texture_modality = std::make_shared<m3t::TextureModality>(
+      name + "_texture_modality", g_body, g_camera, g_silhouette_renderer);
   g_texture_modality->set_descriptor_distance_threshold(0.85f);
   g_texture_modality->set_max_keyframe_age(60);
   link->AddModality(g_texture_modality);
 
   // Detector
-  g_static_detector = std::make_shared<m3t::StaticDetector>(
-      "static_detector", std::filesystem::path{}, optimizer);
+  auto g_static_detector = std::make_shared<m3t::StaticDetector>(
+      name + "_detector", std::filesystem::path{}, optimizer);
   g_tracker->AddDetector(g_static_detector);
+
+  g_bodies[target_id] = g_body;
+  g_safe_poses[target_id] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  g_detectors[target_id] = g_static_detector;
 }
 
 void RenderThreadInit(int eventID) {
@@ -115,11 +125,11 @@ void RenderThreadInit(int eventID) {
       g_tracker->ExecuteStartingStep(frame_idx);
       g_tracker->ExecuteTrackingStep(frame_idx);
 
-      if (g_body) {
-        std::lock_guard<std::mutex> pose_lock(g_pose_mutex);
-        Eigen::Matrix4f pose = g_body->body2world_pose().matrix();
-        for (int i = 0; i < 16; ++i) {
-          g_safe_pose[i] = pose.data()[i];
+      std::lock_guard<std::mutex> pose_lock(g_pose_mutex);
+      for (auto const& [id, body] : g_bodies) {
+        Eigen::Matrix4f pose = body->body2world_pose().matrix();
+        for (int j = 0; j < 16; ++j) {
+          g_safe_poses[id][j] = pose.data()[j];
         }
       }
     }
@@ -141,19 +151,21 @@ void PassCameraFrame(unsigned char* data, int width, int height) {
   }
 }
 
-void PassNewPose(float* matrix_ptr) {
-  if (!g_static_detector || !g_body) return;
-  
+void PassNewPose(int body_id, float* matrix_ptr) {
+  if (g_bodies.find(body_id) == g_bodies.end()) return;
+
   m3t::Transform3fA new_pose;
   new_pose.matrix() = Eigen::Map<Eigen::Matrix4f>(matrix_ptr);
 
-  g_static_detector->set_link2world_pose(new_pose);
-  g_body->set_body2world_pose(new_pose);
+  g_detectors[body_id]->set_link2world_pose(new_pose);
+  g_bodies[body_id]->set_body2world_pose(new_pose);
 }
 
-void GetBodyPose(float* out_pose_matrix) {
+void GetBodyPose(int body_id, float* out_pose_matrix) {
+  if (g_bodies.find(body_id) == g_bodies.end()) return;
+
   std::lock_guard<std::mutex> lock(g_pose_mutex);
-  memcpy(out_pose_matrix, g_safe_pose, 16 * sizeof(float));
+  memcpy(out_pose_matrix, g_safe_poses[body_id].data(), 16 * sizeof(float));
 }
 
 }  // extern "C"

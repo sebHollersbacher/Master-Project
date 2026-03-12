@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using Meta.XR;
@@ -11,7 +12,7 @@ public class Core : MonoBehaviour
 {
     [SerializeField] private RawImage rgbImage;
 
-    private const float secondsPerFrame = 3f;
+    private const float secondsPerFrame = 2f;
 
     private PassthroughCameraAccess _cameraAccess;
     private Detection _detectionScript;
@@ -20,7 +21,7 @@ public class Core : MonoBehaviour
     private Mapping _mappingScript;
     private KeypointVisualizer _keypointVisualizerScript;
 
-    private Constants.TargetModel _currentTarget = Constants.TargetModel.Pikachu;
+    private Constants.TargetModel _currentTarget = Constants.TargetModel.Racket;
     private RenderTexture downscaledTexture;
     private float sendTimer;
 
@@ -77,17 +78,16 @@ public class Core : MonoBehaviour
                 if (matrix != null)
                 {
                     _mappingScript.UpdateTrackingPose(_currentTarget, matrix.Value);
-                    if(_currentTarget == Constants.TargetModel.Pikachu)
-                        _trackingScript.UpdateTrackerDetection(matrix.Value);
+                    _trackingScript.UpdateTrackerDetection(_currentTarget, matrix.Value);
                 }
             }
 
-            // _currentTarget = _currentTarget switch
-            // {
-            //     Constants.TargetModel.Pikachu => Constants.TargetModel.Racket,
-            //     Constants.TargetModel.Racket => Constants.TargetModel.Pen,
-            //     Constants.TargetModel.Pen => Constants.TargetModel.Pikachu,
-            // };
+            _currentTarget = _currentTarget switch
+            {
+                Constants.TargetModel.Pikachu => Constants.TargetModel.Racket,
+                Constants.TargetModel.Racket => Constants.TargetModel.Pen,
+                Constants.TargetModel.Pen => Constants.TargetModel.Pikachu,
+            };
         }
 
         NativeArray<Color32>
@@ -95,17 +95,20 @@ public class Core : MonoBehaviour
         AsyncGPUReadback.RequestIntoNativeArray(ref colorsBuffer, downscaledTexture).WaitForCompletion();
         
         _trackingScript.UpdateTrackerImage(colorsBuffer);
-        Stopwatch sw = new Stopwatch();
+        // Stopwatch sw = new Stopwatch();
         for (var i = 0; i < 4; i++)
         {
-            sw.Start();
+            // sw.Start();
             _trackingScript.UpdateTracker();
-            sw.Stop();
-            Debug.Log($"Execution Time: {sw.Elapsed.TotalMilliseconds} ms");
+            // sw.Stop();
+            // Debug.Log($"Execution Time: {sw.Elapsed.TotalMilliseconds} ms");
         }
-        
-        var newPose = _trackingScript.GetPose();
-        _mappingScript.UpdateTrackingPose(Constants.TargetModel.Pikachu, newPose);
+
+        foreach (Constants.TargetModel target in Enum.GetValues(typeof(Constants.TargetModel)))
+        {
+            var newPose = _trackingScript.GetPose(target);
+            _mappingScript.UpdateTrackingPose(target, newPose);
+        }
     }
 
     public async void StartCamera()
