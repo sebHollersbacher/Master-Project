@@ -14,8 +14,17 @@ RendererGeometry::RendererGeometry(const std::string &name) : name_{name} {}
 
 RendererGeometry::~RendererGeometry() {
   if (initial_set_up_) {
+    MakeContextCurrent();
     for (auto &render_data_body : render_data_bodies_) {
       DeleteGLVertexObjects(&render_data_body);
+    }
+    
+    // Clean up EGL
+    if (egl_display != EGL_NO_DISPLAY) {
+        eglMakeCurrent(egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+        eglDestroyContext(egl_display, egl_context);
+        eglDestroySurface(egl_display, egl_surface);
+        eglTerminate(egl_display);
     }
   }
 }
@@ -24,18 +33,40 @@ bool RendererGeometry::SetUp() {
   const std::lock_guard<std::mutex> lock{mutex_};
   set_up_ = false;
 
-  // Check if all required objects are set up
+  // initialize Headless EGL Context
+  if (!initial_set_up_) {
+    egl_display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    eglInitialize(egl_display, nullptr, nullptr);
+
+    EGLint config_attribs[] = {
+        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
+        EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
+        EGL_BLUE_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_RED_SIZE, 8,
+        EGL_DEPTH_SIZE, 24,
+        EGL_NONE
+    };
+
+    EGLConfig config;
+    EGLint num_configs;
+    eglChooseConfig(egl_display, config_attribs, &config, 1, &num_configs);
+
+    EGLint context_attribs[] = { EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE };
+    egl_context = eglCreateContext(egl_display, config, EGL_NO_CONTEXT, context_attribs);
+
+    EGLint pbuffer_attribs[] = { EGL_WIDTH, 1, EGL_HEIGHT, 1, EGL_NONE };
+    egl_surface = eglCreatePbufferSurface(egl_display, config, pbuffer_attribs);
+
+    initial_set_up_ = true;
+  }
+
+  if (!MakeContextCurrent()) return false;
+
   for (auto &body_ptr : body_ptrs_) {
     if (!body_ptr->set_up()) {
       std::cerr << "Body " << body_ptr->name() << " was not set up"
                 << std::endl;
       return false;
     }
-  }
-
-  // Set up Context (Only for Desktop - Unity handles this on Android)
-  if (!initial_set_up_) {
-    initial_set_up_ = true;
   }
 
   // Set up bodies
@@ -50,6 +81,7 @@ bool RendererGeometry::SetUp() {
   }
 
   set_up_ = true;
+  DetachContext(); 
   return true;
 }
 
@@ -114,11 +146,18 @@ void RendererGeometry::ClearBodies() {
 }
 
 bool RendererGeometry::MakeContextCurrent() {
-  return true;
+  if (eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context)) {
+      return true;
+  }
+  LOGE("Failed to make EGL context current");
+  return false;
 }
 
 bool RendererGeometry::DetachContext() {
-  return true;
+  if (eglMakeCurrent(egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT)) {
+      return true;
+  }
+  return false;
 }
 
 const std::string &RendererGeometry::name() const { return name_; }

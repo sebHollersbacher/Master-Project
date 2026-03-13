@@ -104,38 +104,36 @@ void AddObjectToTracker(int target_id, const char* body_meta_path,
   g_detectors[target_id] = g_static_detector;
 }
 
-void RenderThreadInit(int eventID) {
-  // --- EVENT 1: SETUP ---
-  if (eventID == 1) {
-    if (g_tracker->SetUp(true)) {
-      g_tracker->StartTracking();
-    } else {
-      LOGE("TRACKER SETUP: FAILED. Check shaders and FBO.");
-    }
-  }
-
-  // --- EVENT 2: TRACKING LOOP ---
-  if (eventID == 2) {
-    if (g_tracker && g_camera) {
-      std::lock_guard<std::mutex> lock(g_bridge_mutex);
-
-      static int frame_idx = 0;
-      frame_idx++;
-      g_tracker->UpdateCameras(frame_idx);
-      g_tracker->ExecuteStartingStep(frame_idx);
-      g_tracker->ExecuteTrackingStep(frame_idx);
-
-      std::lock_guard<std::mutex> pose_lock(g_pose_mutex);
-      for (auto const& [id, body] : g_bodies) {
-        Eigen::Matrix4f pose = body->body2world_pose().matrix();
-        for (int j = 0; j < 16; ++j) {
-          g_safe_poses[id][j] = pose.data()[j];
+bool SetupTrackerHeadless() {
+        if (!g_tracker) return false;
+        
+        if (g_tracker->SetUp(true)) { 
+            g_tracker->StartTracking();
+            return true;
         }
-      }
+        return false;
     }
-  }
-}
-void* GetRenderEventFunc() { return (void*)RenderThreadInit; }
+
+void UpdateTrackerHeadless() {
+        if (g_tracker && g_camera) {
+            std::lock_guard<std::mutex> lock(g_bridge_mutex);
+
+            static int frame_idx = 0;
+            frame_idx++;
+            
+            g_tracker->UpdateCameras(frame_idx);
+            g_tracker->ExecuteStartingStep(frame_idx);
+            g_tracker->ExecuteTrackingStep(frame_idx);
+
+            std::lock_guard<std::mutex> pose_lock(g_pose_mutex);
+            for (auto const& [id, body] : g_bodies) {
+                Eigen::Matrix4f pose = body->body2world_pose().matrix();
+                for (int j = 0; j < 16; ++j) {
+                    g_safe_poses[id][j] = pose.data()[j];
+                }
+            }
+        }
+    }
 
 void PassCameraFrame(unsigned char* data, int width, int height) {
   if (!data) return;

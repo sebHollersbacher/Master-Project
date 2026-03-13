@@ -4,7 +4,6 @@ using System.Collections;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using Meta.XR;
 using Unity.Collections;
 using UnityEngine.Networking;
 
@@ -27,31 +26,32 @@ public class Tracking
     [DllImport(pluginName)]
     private static extern void GetBodyPose(Constants.TargetModel target, float[] outMatrix);
 
+    // New Direct Headless Call
     [DllImport(pluginName)]
-    private static extern IntPtr GetRenderEventFunc();
+    private static extern void UpdateTrackerHeadless();
+    [DllImport(pluginName)]
+    private static extern bool SetupTrackerHeadless();
 
-    
-
-    private RenderTexture _resizeRT;
     private GCHandle _bufferHandle;
     private byte[] _managedBuffer;
     private bool isInitialized;
 
-    public async void Init()
+    public async Task Init() // Changed to Task so Core can await it
     {
-        _resizeRT = new RenderTexture(Constants.Width, Constants.Height, 0, RenderTextureFormat.ARGB32);
-        _resizeRT.Create();
-
         string path = Application.persistentDataPath;
         await CopyFilesAsync(path);
+        
         InitTracker();
-        AddObjectToTracker(Constants.TargetModel.Pikachu, Path.Combine(path, "pikachu_yaml.yaml"), Path.Combine(path, "pikachu_model.bin"));
-        AddObjectToTracker(Constants.TargetModel.Racket, Path.Combine(path, "racket_yaml.yaml"), Path.Combine(path, "racket_model.bin"));
+        // AddObjectToTracker(Constants.TargetModel.Pikachu, Path.Combine(path, "pikachu_yaml.yaml"), Path.Combine(path, "pikachu_model.bin"));
+        // AddObjectToTracker(Constants.TargetModel.Racket, Path.Combine(path, "racket_yaml.yaml"), Path.Combine(path, "racket_model.bin"));
         AddObjectToTracker(Constants.TargetModel.Pen, Path.Combine(path, "pen_yaml.yaml"), Path.Combine(path, "pen_model.bin"));
-        GL.IssuePluginEvent(GetRenderEventFunc(), 1);
-        Debug.Log("M3T Initialized via Script");
 
-        isInitialized = true;
+        if (SetupTrackerHeadless()) {
+            isInitialized = true;
+            Debug.Log("M3T Headless Context Ready.");
+        } else {
+            Debug.LogError("M3T Setup Failed. Check EGL initialization.");
+        }
     }
 
     private async Task CopyFilesAsync(string path)
@@ -71,14 +71,7 @@ public class Tracking
                 }
 
                 if (www.result == UnityWebRequest.Result.Success)
-                {
                     await File.WriteAllBytesAsync(destPath, www.downloadHandler.data);
-                    Debug.Log($"[DEBUG] Copied: {f}");
-                }
-                else
-                {
-                    Debug.LogError($"[DEBUG] Failed to copy {f}: {www.error}");
-                }
             }
         }
     }
@@ -108,10 +101,11 @@ public class Tracking
     {
         PassNewPose(target, ref newDetection);
     }
-
+    
     public void UpdateTracker()
     {
-        GL.IssuePluginEvent(GetRenderEventFunc(), 2);
+        if (!isInitialized) return;
+        UpdateTrackerHeadless();
     }
 
     public Matrix4x4 GetPose(Constants.TargetModel target)
@@ -130,6 +124,6 @@ public class Tracking
 
     public void OnDestroy()
     {
-        if (_resizeRT != null) _resizeRT.Release();
+        if (_bufferHandle.IsAllocated) _bufferHandle.Free();
     }
 }

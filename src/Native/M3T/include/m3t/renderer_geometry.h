@@ -4,6 +4,7 @@
 #ifndef M3T_INCLUDE_M3T_RENDERER_GEOMETRY_H_
 #define M3T_INCLUDE_M3T_RENDERER_GEOMETRY_H_
 
+#include <EGL/egl.h>
 #include <GLES3/gl3.h>
 #include <GLES3/gl3ext.h>
 
@@ -86,6 +87,9 @@ class RendererGeometry {
   std::mutex mutex_;
   bool initial_set_up_ = false;
   bool set_up_ = false;
+  EGLDisplay egl_display = EGL_NO_DISPLAY;
+  EGLContext egl_context = EGL_NO_CONTEXT;
+  EGLSurface egl_surface = EGL_NO_SURFACE;
 };
 
 }  // namespace m3t
