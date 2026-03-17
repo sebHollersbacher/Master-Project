@@ -569,10 +569,12 @@ GameObject:
   m_Component:
   - component: {fileID: 111527603}
   - component: {fileID: 111527609}
+  - component: {fileID: 111527614}
   - component: {fileID: 111527610}
   - component: {fileID: 111527612}
   - component: {fileID: 111527607}
   - component: {fileID: 111527611}
+  - component: {fileID: 111527615}
   m_Layer: 0
   m_Name: '[Logic]'
   m_TagString: Untagged
@@ -654,7 +656,8 @@ MonoBehaviour:
   pikachuTransform: {fileID: 2110847917}
   racketTransform: {fileID: 1975015026}
   penTransform: {fileID: 1241364537}
-  refTransform: {fileID: 930650972}
+  centerEyeAnchor: {fileID: 930650972}
+  rightEyeAnchor: {fileID: 930650970}
 --- !u!114 &111527612
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -670,6 +673,35 @@ MonoBehaviour:
   pikachuModel: {fileID: 5022602860645237092, guid: 64ac2e3e8645cda49a29e32db7837d78, type: 3}
   penModel: {fileID: 5022602860645237092, guid: e4366ea3a9051094dabaf2aed5dd9597, type: 3}
   racketModel: {fileID: 5022602860645237092, guid: 48ec617f90512224da6b82d2d29da5df, type: 3}
+--- !u!114 &111527614
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 111527601}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 71a155ece80369d4e99bdaf5e59169b5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Meta.XR.EnvironmentDepth::Meta.XR.EnvironmentDepth.EnvironmentDepthManager
+  _occlusionShadersMode: 0
+  _removeHands: 0
+  CustomTrackingSpace: {fileID: 0}
+  <MaskMeshFilters>k__BackingField: []
+--- !u!114 &111527615
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 111527601}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2d55027bfe04bfd9bf4d474b2d4a6a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DepthHelper
+  depthComputeShader: {fileID: 7200000, guid: f32eeb0cebe5d8b43aac1a96086edb03, type: 3}
 --- !u!1 &128513415
 GameObject:
   m_ObjectHideFlags: 0
@@ -6892,7 +6924,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &817075156
 Transform:
   m_ObjectHideFlags: 0
@@ -7774,6 +7806,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 100000, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 100004, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
       propertyPath: m_Name
       value: OVRCameraRig
@@ -7820,7 +7856,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 459718, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2037080, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
       propertyPath: m_ClearFlags
@@ -8056,6 +8092,11 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!4 &930650970 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 400000, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
+  m_PrefabInstance: {fileID: 930650960}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &930650972 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 400002, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}

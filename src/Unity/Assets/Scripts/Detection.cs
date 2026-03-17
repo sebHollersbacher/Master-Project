@@ -42,6 +42,18 @@ public class Detection : MonoBehaviour
         inputTensor?.Dispose();
         if (copyTexture != null) copyTexture.Release();
     }
+    
+    public Matrix4x4 TransformDetectionToOrigin(Matrix4x4 newDetection, Pose lensOffset)
+    {
+        // M3T origin is now centerEyeAnchor, transform the Detection from RGB-Camera to Origin
+        Matrix4x4 lensLocalUnity = Matrix4x4.TRS(lensOffset.position, lensOffset.rotation, Vector3.one);
+
+        // convert to OpenCV
+        Matrix4x4 flipY = Matrix4x4.Scale(new Vector3(1, -1, 1));
+        Matrix4x4 lensLocalOpenCv = flipY * lensLocalUnity * flipY;
+
+        return lensLocalOpenCv * newDetection;
+    }
 
     public async Task<YoloResult> Inference(Constants.TargetModel target, Texture cameraTexture, float minScore)
     {
@@ -68,7 +80,7 @@ public class Detection : MonoBehaviour
         }
         catch (Exception e)
         {
-            Debug.LogError($"[DEBUG] Error reading CPU tensor: {e.Message}");
+            Debug.LogError($"[Detection] Error reading CPU tensor: {e.Message}");
             return new YoloResult { isValid = false };
         }
     }

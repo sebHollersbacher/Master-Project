@@ -1,0 +1,23 @@
+#pragma kernel CSMain
+
+Texture2DArray<float> InputTexture;
+RWTexture2D<uint> OutputTexture;
+
+float4 ZBufferParams;
+
+[numthreads(8, 8, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    // raw depth from right eye (index 1)
+    float rawDepth = InputTexture.Load(int4(id.x, id.y, 1, 0));
+
+    // linearize
+    float ndcDepth = rawDepth * 2.0 - 1.0;
+    float linearDepth = (1.0 / (ndcDepth + ZBufferParams.y)) * ZBufferParams.x;
+
+    // convert to mm
+    float depth_mm = linearDepth * 1000.0;
+    uint final_depth = (uint)min(depth_mm, 65535.0);
+    
+    OutputTexture[id.xy] = final_depth;
+}

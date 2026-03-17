@@ -39,7 +39,7 @@ using UnityEngine.UI;
 public class DepthManager : MonoBehaviour
 {
     private const int numViews = 2;
-    private static DepthHelper _helper;
+    private static DepthHelper2 _helper;
     private readonly DepthFrameDesc[] frameDescriptors = new DepthFrameDesc[numViews];
     private bool _hasPermission;
     private readonly Matrix4x4[] _reprojectionMatrices = new Matrix4x4[numViews];
@@ -99,12 +99,12 @@ public class DepthManager : MonoBehaviour
         // Assume NearZ and FarZ are the same for left and right eyes
         var leftEyeData = frameDescriptors[0];
         var depthZBufferParams =
-            DepthHelper.DepthUtils.ComputeNdcToLinearDepthParameters(leftEyeData.nearZ, leftEyeData.farZ);
+            DepthHelper2.DepthUtils.ComputeNdcToLinearDepthParameters(leftEyeData.nearZ, leftEyeData.farZ);
 
         for (int i = 0; i < numViews; i++)
         {
             _reprojectionMatrices[i] =
-                DepthHelper.DepthUtils.CalculateReprojection(frameDescriptors[i]); // * trackingSpaceWorldToLocal;
+                DepthHelper2.DepthUtils.CalculateReprojection(frameDescriptors[i]); // * trackingSpaceWorldToLocal;
         }
     }
 

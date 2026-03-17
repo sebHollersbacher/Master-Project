@@ -29,6 +29,7 @@ set(SOURCES
     subscriber.cpp
     tracker.cpp
     unity_color_camera.cpp
+    unity_depth_camera.cpp
     unity_bridge.cpp
 )
 
@@ -61,7 +62,8 @@ set(HEADERS
         ../include/m3t/subscriber.h
         ../include/m3t/tracker.h
         ../include/m3t/generator.h
-        ../include/m3t/unity_color_camera.h)
+        ../include/m3t/unity_color_camera.h
+        ../include/m3t/unity_depth_camera.h)
 
 # Create the Library
 add_library(m3t SHARED ${SOURCES})

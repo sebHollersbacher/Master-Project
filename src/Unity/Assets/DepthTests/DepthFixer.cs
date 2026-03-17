@@ -3,10 +3,14 @@ using Meta.XR.EnvironmentDepth;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.XR;
-using Unity.XR.CoreUtils; // for XROrigin
+using Unity.XR.CoreUtils;
+using UnityEngine.Experimental.Rendering; // for XROrigin
 
 public class EnvironmentDepthPipeline : MonoBehaviour
 {
+    private RenderTexture _readableDepthTexture;
+    private Material _blitMaterial;
+    
     public EnvironmentDepthManager _DepthManager;
     public RawImage rawDepthDebug;
     [SerializeField] public Transform CustomTrackingSpace;
@@ -14,6 +18,8 @@ public class EnvironmentDepthPipeline : MonoBehaviour
     private void Start()
     {
         _DepthManager.enabled = true;
+        _readableDepthTexture = new RenderTexture(320, 320, 0, GraphicsFormat.R16_UNorm);
+        _readableDepthTexture.Create();
     }
 
     void Update()
@@ -26,7 +32,6 @@ public class EnvironmentDepthPipeline : MonoBehaviour
         if (_DepthManager.IsDepthAvailable)
         {
             var rawTexture = Shader.GetGlobalTexture("_EnvironmentDepthTexture");
-            rawDepthDebug.texture = rawTexture;
         }
     }
 }

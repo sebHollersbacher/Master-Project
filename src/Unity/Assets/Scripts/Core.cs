@@ -20,8 +20,9 @@ public class Core : MonoBehaviour
     private Tracking _trackingScript;
     private Mapping _mappingScript;
     private KeypointVisualizer _keypointVisualizerScript;
+    private DepthHelper _depthHelper;
 
-    private Constants.TargetModel _currentTarget = Constants.TargetModel.Racket;
+    private Constants.TargetModel _currentTarget = Constants.TargetModel.Pikachu;
     private RenderTexture downscaledTexture;
     private float sendTimer;
 
@@ -31,17 +32,14 @@ public class Core : MonoBehaviour
         _detectionScript = GetComponent<Detection>();
         _mappingScript = GetComponent<Mapping>();
 
-        _mappingScript.lensOffset = _cameraAccess.Intrinsics.LensOffset;
         _pnpScript = new PnP();
         _trackingScript = new Tracking();
         _keypointVisualizerScript = GetComponent<KeypointVisualizer>();
+        _depthHelper = GetComponent<DepthHelper>();
+        _depthHelper.setTrackingScript(_trackingScript);
 
         downscaledTexture = new RenderTexture(320, 320, 0, RenderTextureFormat.ARGB32);
         downscaledTexture.Create();
-
-        Debug.Log($"[DEBUG] PrincipalPoint {_cameraAccess.Intrinsics.PrincipalPoint}");
-        Debug.Log($"[DEBUG] FocalLength {_cameraAccess.Intrinsics.FocalLength}");
-        Debug.Log($"[DEBUG] SensorResolution {_cameraAccess.Intrinsics.SensorResolution}");
     }
 
     private void Start()
@@ -63,7 +61,6 @@ public class Core : MonoBehaviour
         var cameraTexture = _cameraAccess.GetTexture();
         if (cameraTexture == null) return;
         Graphics.Blit(cameraTexture, downscaledTexture);
-        // rgbImage.texture = downscaledTexture;
         
         sendTimer += Time.deltaTime;
         if (sendTimer >= secondsPerFrame)
@@ -72,20 +69,20 @@ public class Core : MonoBehaviour
             var result  = await _detectionScript.Inference(_currentTarget, cameraTexture, 0.7f);
             if (result.isValid)
             {
-                Debug.Log($"[DEBUG] Found Object {result.keypoints.Count}");
-                // _keypointVisualizerScript.UpdateVisuals(result.keypoints);
+                _keypointVisualizerScript.UpdateVisuals(result.keypoints);
                 var matrix = _pnpScript.Solve(_currentTarget, result);
                 if (matrix != null)
                 {
-                    _mappingScript.UpdateTrackingPose(_currentTarget, matrix.Value);
-                    _trackingScript.UpdateTrackerDetection(_currentTarget, matrix.Value);
+                    var correctedPose = _detectionScript.TransformDetectionToOrigin(matrix.Value,
+                        _cameraAccess.Intrinsics.LensOffset);
+                    _trackingScript.UpdateTrackerDetection(_currentTarget, correctedPose);
                 }
             }
 
             _currentTarget = _currentTarget switch
             {
-                Constants.TargetModel.Pikachu => Constants.TargetModel.Racket,
-                Constants.TargetModel.Racket => Constants.TargetModel.Pen,
+                Constants.TargetModel.Pikachu => Constants.TargetModel.Pen,
+                // Constants.TargetModel.Racket => Constants.TargetModel.Pen,
                 Constants.TargetModel.Pen => Constants.TargetModel.Pikachu,
             };
         }
@@ -93,21 +90,17 @@ public class Core : MonoBehaviour
         NativeArray<Color32>
             colorsBuffer = new NativeArray<Color32>(320 * 320, Allocator.Persistent);
         AsyncGPUReadback.RequestIntoNativeArray(ref colorsBuffer, downscaledTexture).WaitForCompletion();
+        _trackingScript.UpdateTrackerRGBImage(colorsBuffer);
         
-        _trackingScript.UpdateTrackerImage(colorsBuffer);
-        // Stopwatch sw = new Stopwatch();
         for (var i = 0; i < 4; i++)
         {
-            // sw.Start();
             _trackingScript.UpdateTracker();
-            // sw.Stop();
-            // Debug.Log($"Execution Time: {sw.Elapsed.TotalMilliseconds} ms");
         }
 
         foreach (Constants.TargetModel target in Enum.GetValues(typeof(Constants.TargetModel)))
         {
             var newPose = _trackingScript.GetPose(target);
-            _mappingScript.UpdateTrackingPose(target, newPose);
+            _mappingScript.UpdatePose(target, newPose);
         }
     }
 
@@ -118,10 +111,10 @@ public class Core : MonoBehaviour
             await Task.Yield();
         }
 
-        Debug.Log("[DEBUG] Camera Started");
-        Debug.Log($"[DEBUG] PrincipalPoint {_cameraAccess.Intrinsics.PrincipalPoint}"); // (636.47, 637.35)
-        Debug.Log($"[DEBUG] FocalLength {_cameraAccess.Intrinsics.FocalLength}"); // (866.16, 866.16)
-        Debug.Log($"[DEBUG] SensorResolution {_cameraAccess.Intrinsics.SensorResolution}"); // (1280, 1280)
-        Debug.Log($"[DEBUG] LensOffset {_cameraAccess.Intrinsics.LensOffset}");
+        Debug.Log("[Camera] Camera Started");
+        Debug.Log($"[Camera] PrincipalPoint {_cameraAccess.Intrinsics.PrincipalPoint}"); // (636.47, 637.35)
+        Debug.Log($"[Camera] FocalLength {_cameraAccess.Intrinsics.FocalLength}"); // (866.16, 866.16)
+        Debug.Log($"[Camera] SensorResolution {_cameraAccess.Intrinsics.SensorResolution}"); // (1280, 1280)
+        Debug.Log($"[Camera] LensOffset {_cameraAccess.Intrinsics.LensOffset}"); // ((0.03, -0.02, 0.06), (0.09526, -0.00290, 0.00387, 0.99544))
     }
 }

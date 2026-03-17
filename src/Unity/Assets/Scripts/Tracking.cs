@@ -13,12 +13,16 @@ public class Tracking
 
     [DllImport(pluginName)]
     private static extern void InitTracker();
-    
+
     [DllImport(pluginName)]
-    private static extern void PassCameraFrame(IntPtr data, int w, int h);
-    
+    private static extern void PassRGBCameraFrame(IntPtr data, int w, int h);
+
     [DllImport(pluginName)]
-    private static extern void AddObjectToTracker(Constants.TargetModel target, string bodyMetaPath, string modelBinPath);
+    private static extern void PassDepthCameraFrame(IntPtr data, int w, int h);
+
+    [DllImport(pluginName)]
+    private static extern void AddObjectToTracker(Constants.TargetModel target, string bodyMetaPath,
+        string regionModelPath, string depthModelPath);
 
     [DllImport(pluginName)]
     private static extern void PassNewPose(Constants.TargetModel target, ref Matrix4x4 newPose);
@@ -29,6 +33,7 @@ public class Tracking
     // New Direct Headless Call
     [DllImport(pluginName)]
     private static extern void UpdateTrackerHeadless();
+
     [DllImport(pluginName)]
     private static extern bool SetupTrackerHeadless();
 
@@ -40,23 +45,37 @@ public class Tracking
     {
         string path = Application.persistentDataPath;
         await CopyFilesAsync(path);
-        
-        InitTracker();
-        // AddObjectToTracker(Constants.TargetModel.Pikachu, Path.Combine(path, "pikachu_yaml.yaml"), Path.Combine(path, "pikachu_model.bin"));
-        // AddObjectToTracker(Constants.TargetModel.Racket, Path.Combine(path, "racket_yaml.yaml"), Path.Combine(path, "racket_model.bin"));
-        AddObjectToTracker(Constants.TargetModel.Pen, Path.Combine(path, "pen_yaml.yaml"), Path.Combine(path, "pen_model.bin"));
 
-        if (SetupTrackerHeadless()) {
+        InitTracker();
+        AddObjectToTracker(Constants.TargetModel.Pikachu,
+            Path.Combine(path, "pikachu_yaml.yaml"), 
+            Path.Combine(path, "pikachu_region_model.bin"),
+            Path.Combine(path, "pikachu_depth_model.bin"));
+        // AddObjectToTracker(Constants.TargetModel.Racket, Path.Combine(path, "racket_yaml.yaml"), Path.Combine(path, "racket_model.bin"));
+        AddObjectToTracker(Constants.TargetModel.Pen,
+            Path.Combine(path, "pen_yaml.yaml"), 
+            Path.Combine(path, "pen_region_model.bin"),
+            Path.Combine(path, "pen_depth_model.bin"));
+
+        if (SetupTrackerHeadless())
+        {
             isInitialized = true;
             Debug.Log("M3T Headless Context Ready.");
-        } else {
+        }
+        else
+        {
             Debug.LogError("M3T Setup Failed. Check EGL initialization.");
         }
     }
 
     private async Task CopyFilesAsync(string path)
     {
-        string[] files = { "pen_yaml.yaml", "pen.obj", "pen_model.bin", "pikachu_yaml.yaml", "pikachu.obj", "pikachu_model.bin", "racket_yaml.yaml", "racket.obj", "racket_model.bin" };
+        string[] files =
+        {
+            "pen_yaml.yaml", "pen.obj", "pen_region_model.bin", "pen_depth_model.bin",
+            "pikachu_yaml.yaml", "pikachu.obj", "pikachu_region_model.bin", "pikachu_depth_model.bin",
+            "racket_yaml.yaml", "racket.obj", "racket_region_model.bin", "racket_depth_model.bin"
+        };
 
         foreach (var f in files)
         {
@@ -76,11 +95,11 @@ public class Tracking
         }
     }
 
-    public void UpdateTrackerImage(NativeArray<Color32> image)
+    public void UpdateTrackerRGBImage(NativeArray<Color32> image)
     {
         if (!isInitialized || !image.IsCreated || image.Length == 0) return;
         int byteCount = image.Length * 4;
-        
+
         // Check buffer resizing
         if (_managedBuffer == null || _managedBuffer.Length != byteCount)
         {
@@ -90,18 +109,23 @@ public class Tracking
         }
 
         // Copy data
-        NativeArray<byte> byteView = image.Reinterpret<byte>(16);
+        NativeArray<byte> byteView = image.Reinterpret<byte>(4);
         byteView.CopyTo(_managedBuffer);
 
         // Send to C++
-        PassCameraFrame(_bufferHandle.AddrOfPinnedObject(), 320, 320);
+        PassRGBCameraFrame(_bufferHandle.AddrOfPinnedObject(), 320, 320);
     }
-    
+
+    public void UpdateTrackerDepthImage(IntPtr depthImagePtr)
+    {
+        PassDepthCameraFrame(depthImagePtr, 320, 320);
+    }
+
     public void UpdateTrackerDetection(Constants.TargetModel target, Matrix4x4 newDetection)
     {
         PassNewPose(target, ref newDetection);
     }
-    
+
     public void UpdateTracker()
     {
         if (!isInitialized) return;
