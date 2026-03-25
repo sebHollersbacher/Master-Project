@@ -1,5 +1,6 @@
-﻿using System.Runtime.InteropServices;
+using System.Runtime.InteropServices;
 using Meta.XR.EnvironmentDepth;
+using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -11,10 +12,8 @@ public class DepthHelper : MonoBehaviour
     private RenderTexture _readableDepthTexture;
     private EnvironmentDepthManager _depthManager;
     private Tracking _trackingScript;
-    private bool _isProcessing;
     private byte[] _managedDepthBuffer;
     private GCHandle _depthBufferHandle;
-
     private int _kernelIndex;
 
     private void Start()
@@ -27,67 +26,40 @@ public class DepthHelper : MonoBehaviour
         _readableDepthTexture.Create();
 
         _kernelIndex = depthComputeShader.FindKernel("CSMain");
-
     }
 
     public void setTrackingScript(Tracking trackingScript)
     {
         _trackingScript = trackingScript;
     }
-
-    private void Update()
+    
+    public void CaptureAndSendDepth()
     {
-        if (_depthManager.IsDepthAvailable && !_isProcessing)
+        if (!_depthManager.IsDepthAvailable) return;
+
+        var depthTex = Shader.GetGlobalTexture("_EnvironmentDepthTexture");
+        if (depthTex == null) return;
+
+        depthComputeShader.SetTexture(_kernelIndex, "InputTexture", depthTex);
+        depthComputeShader.SetTexture(_kernelIndex, "OutputTexture", _readableDepthTexture);
+        
+        // pass Z-buffer parameters for the linear math
+        Vector4 zParams = Shader.GetGlobalVector("_EnvironmentDepthZBufferParams");
+        depthComputeShader.SetVector("ZBufferParams", zParams);
+        depthComputeShader.Dispatch(_kernelIndex, 320 / 8, 320 / 8, 1);
+
+        // synchronous readback to make sure latest depth image is used
+        var readback = AsyncGPUReadback.Request(_readableDepthTexture, 0);
+        readback.WaitForCompletion();
+
+        if (readback.hasError)
         {
-            var depthTex = Shader.GetGlobalTexture("_EnvironmentDepthTexture");
-            if (depthTex != null)
-            {
-                _isProcessing = true;
-                
-                depthComputeShader.SetTexture(_kernelIndex, "InputTexture", depthTex);
-                depthComputeShader.SetTexture(_kernelIndex, "OutputTexture", _readableDepthTexture);
-
-                // pass Z-buffer parameters for the linear math
-                Vector4 zParams = Shader.GetGlobalVector("_EnvironmentDepthZBufferParams");
-                depthComputeShader.SetVector("ZBufferParams", zParams);
-                depthComputeShader.Dispatch(_kernelIndex, 320 / 8, 320 / 8, 1);
-
-                RequestDepthReadback(_readableDepthTexture);
-            }
+            Debug.LogError("[DepthHelper] Synchronous readback failed");
+            return;
         }
-    }
 
-    private void RequestDepthReadback(Texture tex)
-    {
-        AsyncGPUReadback.Request(tex, 0, request =>
-        {
-            if (request.hasError)
-            {
-                Debug.LogError(
-                    "[DepthHelper] AsyncGPUReadback failed! GPU might be overwhelmed or format is incompatible.");
-                _isProcessing = false;
-                return;
-            }
-
-            // read 16-bit data from texture
-            var data = request.GetData<ushort>();
-            int byteCount = data.Length * sizeof(ushort);
-            
-            // allocate buffer
-            if (_managedDepthBuffer == null || _managedDepthBuffer.Length != byteCount)
-            {
-                if (_depthBufferHandle.IsAllocated) _depthBufferHandle.Free();
-                _managedDepthBuffer = new byte[byteCount];
-                _depthBufferHandle = GCHandle.Alloc(_managedDepthBuffer, GCHandleType.Pinned);
-            }
-            
-            // reinterpret to pass the data as a byte array
-            var byteView = data.Reinterpret<byte>(sizeof(ushort));
-            byteView.CopyTo(_managedDepthBuffer);
-            
-            _trackingScript?.UpdateTrackerDepthImage(_depthBufferHandle.AddrOfPinnedObject());
-            _isProcessing = false;
-        });
+        NativeArray<ushort> data = readback.GetData<ushort>();
+        _trackingScript?.UpdateTrackerDepthImage(data);
     }
 
     private void OnDestroy()

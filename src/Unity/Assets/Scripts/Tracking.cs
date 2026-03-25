@@ -37,8 +37,10 @@ public class Tracking
     [DllImport(pluginName)]
     private static extern bool SetupTrackerHeadless();
 
-    private GCHandle _bufferHandle;
-    private byte[] _managedBuffer;
+    private GCHandle _bufferHandleRGB;
+    private byte[] _managedBufferRGB;
+    private GCHandle _bufferHandleDepth;
+    private byte[] _managedBufferDepth;
     private bool isInitialized;
 
     public async Task Init() // Changed to Task so Core can await it
@@ -101,24 +103,39 @@ public class Tracking
         int byteCount = image.Length * 4;
 
         // Check buffer resizing
-        if (_managedBuffer == null || _managedBuffer.Length != byteCount)
+        if (_managedBufferRGB == null || _managedBufferRGB.Length != byteCount)
         {
-            if (_bufferHandle.IsAllocated) _bufferHandle.Free();
-            _managedBuffer = new byte[byteCount];
-            _bufferHandle = GCHandle.Alloc(_managedBuffer, GCHandleType.Pinned);
+            if (_bufferHandleRGB.IsAllocated) _bufferHandleRGB.Free();
+            _managedBufferRGB = new byte[byteCount];
+            _bufferHandleRGB = GCHandle.Alloc(_managedBufferRGB, GCHandleType.Pinned);
         }
 
         // Copy data
         NativeArray<byte> byteView = image.Reinterpret<byte>(4);
-        byteView.CopyTo(_managedBuffer);
+        byteView.CopyTo(_managedBufferRGB);
 
         // Send to C++
-        PassRGBCameraFrame(_bufferHandle.AddrOfPinnedObject(), 320, 320);
+        PassRGBCameraFrame(_bufferHandleRGB.AddrOfPinnedObject(), 320, 320);
     }
 
-    public void UpdateTrackerDepthImage(IntPtr depthImagePtr)
+    public void UpdateTrackerDepthImage(NativeArray<ushort> image)
     {
-        PassDepthCameraFrame(depthImagePtr, 320, 320);
+        if (!isInitialized || !image.IsCreated || image.Length == 0) return;
+        int byteCount = image.Length * sizeof(ushort);
+
+        // Check buffer resizing
+        if (_managedBufferDepth == null || _managedBufferDepth.Length != byteCount)
+        {
+            if (_bufferHandleDepth.IsAllocated) _bufferHandleDepth.Free();
+            _managedBufferDepth = new byte[byteCount];
+            _bufferHandleDepth = GCHandle.Alloc(_managedBufferDepth, GCHandleType.Pinned);
+        }
+
+        // Copy data
+        NativeArray<byte> byteView = image.Reinterpret<byte>(sizeof(ushort));
+        byteView.CopyTo(_managedBufferDepth);
+        
+        PassDepthCameraFrame(_bufferHandleDepth.AddrOfPinnedObject(), 320, 320);
     }
 
     public void UpdateTrackerDetection(Constants.TargetModel target, Matrix4x4 newDetection)
@@ -148,6 +165,6 @@ public class Tracking
 
     public void OnDestroy()
     {
-        if (_bufferHandle.IsAllocated) _bufferHandle.Free();
+        if (_bufferHandleRGB.IsAllocated) _bufferHandleRGB.Free();
     }
 }

@@ -61,7 +61,7 @@ public class Core : MonoBehaviour
         var cameraTexture = _cameraAccess.GetTexture();
         if (cameraTexture == null) return;
         Graphics.Blit(cameraTexture, downscaledTexture);
-        
+
         sendTimer += Time.deltaTime;
         if (sendTimer >= secondsPerFrame)
         {
@@ -91,7 +91,9 @@ public class Core : MonoBehaviour
             colorsBuffer = new NativeArray<Color32>(320 * 320, Allocator.Persistent);
         AsyncGPUReadback.RequestIntoNativeArray(ref colorsBuffer, downscaledTexture).WaitForCompletion();
         _trackingScript.UpdateTrackerRGBImage(colorsBuffer);
-        
+        colorsBuffer.Dispose();
+        _depthHelper.CaptureAndSendDepth();
+
         for (var i = 0; i < 4; i++)
         {
             _trackingScript.UpdateTracker();
@@ -112,7 +114,7 @@ public class Core : MonoBehaviour
         }
 
         Debug.Log("[Camera] Camera Started");
-        Debug.Log($"[Camera] PrincipalPoint {_cameraAccess.Intrinsics.PrincipalPoint}"); // (636.47, 637.35)
+        Debug.Log($"[Camera] PrincipalPoint {_cameraAccess.Intrinsics.PrincipalPoint}"); // (636.47, 637.35)  not flipped
         Debug.Log($"[Camera] FocalLength {_cameraAccess.Intrinsics.FocalLength}"); // (866.16, 866.16)
         Debug.Log($"[Camera] SensorResolution {_cameraAccess.Intrinsics.SensorResolution}"); // (1280, 1280)
         Debug.Log($"[Camera] LensOffset {_cameraAccess.Intrinsics.LensOffset}"); // ((0.03, -0.02, 0.06), (0.09526, -0.00290, 0.00387, 0.99544))

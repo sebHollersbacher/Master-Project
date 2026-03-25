@@ -112,16 +112,18 @@ void AddObjectToTracker(int target_id, const char* body_meta_path,
   link->AddModality(region_modality);
 
   // Texture Modality
-  // g_silhouette_renderer->AddReferencedBody(g_body);
-  // auto g_texture_modality = std::make_shared<m3t::TextureModality>(
-  //     name + "_texture_modality", g_body, g_camera, g_silhouette_renderer);
-  // g_texture_modality->set_descriptor_distance_threshold(0.85f);
-  // g_texture_modality->set_max_keyframe_age(60);
-  // link->AddModality(g_texture_modality);
+  g_silhouette_renderer->AddReferencedBody(g_body);
+  auto g_texture_modality = std::make_shared<m3t::TextureModality>(
+      name + "_texture_modality", g_body, g_camera, g_silhouette_renderer);
+  g_texture_modality->set_descriptor_distance_threshold(0.85f);
+  g_texture_modality->set_max_keyframe_age(60);
+  link->AddModality(g_texture_modality);
 
   // Depth Modality
   auto depth_modality = std::make_shared<m3t::DepthModality>(
       name + "_depth_modality", g_body, g_d_camera, depth_model);
+  depth_modality->set_considered_distances({0.08f, 0.04f, 0.02f});
+  depth_modality->set_standard_deviations({0.08f, 0.05f, 0.03f});
   link->AddModality(depth_modality);
 
   // Detector
