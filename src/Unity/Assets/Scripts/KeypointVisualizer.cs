@@ -14,31 +14,41 @@ public class KeypointVisualizer : MonoBehaviour
         {
             GameObject dot = Object.Instantiate(prefab, container);
             Image image = dot.GetComponent<Image>();
+            // switch (dotPool.Count)
+            // {
+            //     case 0:
+            //         image.color = Color.limeGreen;
+            //         break;
+            //     case 1:
+            //         image.color = Color.yellow;
+            //         break;
+            //     case 2:
+            //         image.color = Color.blue;
+            //         break;
+            //     case 3:
+            //         image.color = Color.red;
+            //         break;
+            //     case 4:
+            //         image.color = Color.purple;
+            //         break;
+            //     case 5:
+            //         image.color = Color.brown;
+            //         break;
+            //     case 6:
+            //         image.color = Color.black;
+            //         break;
+            //     case 7:
+            //         image.color = Color.white;
+            //         break;
+            // }
+
             switch (dotPool.Count)
             {
                 case 0:
-                    image.color = Color.limeGreen;
-                    break;
-                case 1:
-                    image.color = Color.yellow;
-                    break;
-                case 2:
                     image.color = Color.blue;
                     break;
-                case 3:
-                    image.color = Color.red;
-                    break;
-                case 4:
-                    image.color = Color.purple;
-                    break;
-                case 5:
-                    image.color = Color.brown;
-                    break;
-                case 6:
-                    image.color = Color.black;
-                    break;
                 case 7:
-                    image.color = Color.white;
+                    image.color = Color.green;
                     break;
             }
 

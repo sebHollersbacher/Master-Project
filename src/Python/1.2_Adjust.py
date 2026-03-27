@@ -3,7 +3,7 @@ import os
 LABELS_DIR = os.path.join("train_images", "labels")
 
 NEW_CLASS_ID = "0"
-TARGET_KPTS = 13
+TARGET_KPTS = 9
 
 def fix_pen_labels():
     if not os.path.exists(LABELS_DIR):

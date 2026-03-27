@@ -8,7 +8,7 @@ from ultralytics import YOLO
 
 INPUT_FOLDER = './datasets/images/val'
 OUTPUT_FOLDER = './output_results'
-MODEL_PATH = './runs/racket_pose/weights/best.pt'
+MODEL_PATH = './runs/pikachu_pose/weights/best.pt'
 CONF_THRESHOLD = 0.8
 
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
@@ -44,11 +44,22 @@ pts_racket = np.array([
     (0.002068, -0.055594, -0.006402)   # purple handle
 ], dtype=np.float32)
 
-object_pts = pts_racket
+pts_pen =  np.array([
+    (0, -0.077072, 0),   # Tip
+    (0, -0.067886, 0),   # Wood
+    (0, -0.065458, 0),  # First Points
+    (0, 0.032303, 0),  # G
+    (0, 0.052052, 0),  # Logo
+    (0, 0.025107, 0),  # Last Points
+    (0, 0.088626, 0),  # Border Top
+    (0, 0.090359, 0),  # Top
+], dtype=np.float32)
+
+object_pts = pts_pikachu
 
 camera_matrix = np.array([
-    [433.08, 0, 318.235],
-    [0, 433.08, 318.675],
+    [324.81, 0, 238.6725],
+    [0, 324.81, 239.00625],
     [0, 0, 1]
 ], dtype=np.float32)
 dist_coeffs = np.zeros((4, 1))

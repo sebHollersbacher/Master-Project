@@ -40,7 +40,7 @@ public class Constants
     
     public static readonly List<Vector3> PenPoints = new List<Vector3>()
     {
-        new(0.0f, -0.079072f, 0.0f),  // 0: Tip
+        new(0.0f, -0.077072f, 0.0f),  // 0: Tip
         new(0.0f, -0.067886f, 0.0f),  // 1: Wood
         new(0.0f, -0.065458f, 0.0f),  // 2: First Points
         new(0.0f, 0.025107f, 0.0f),  // 3: Last Points
@@ -50,14 +50,21 @@ public class Constants
         new(0.0f, 0.090359f, 0.0f),  // 7: Top
     };
     
-    public static readonly List<Vector3> CameraMatrixList = new List<Vector3>()
+    public static readonly List<Vector3> CameraMatrixList640 = new List<Vector3>()
     {
         new(433.08f, 0, 318.235f), // Row 0: fx, 0, cx
         new(0, 433.08f, 318.675f), // Row 1: 0, fy, cy
         new(0, 0, 1)  // Row 2: 0,  0,  1
     };
     
-    public static readonly Vector2 ModelResolution = new Vector2(640, 640); 
-    public static readonly int Width = 640;
-    public static readonly int Height = 640;
+    public static readonly List<Vector3> CameraMatrixList = new List<Vector3>()
+    {
+        new(324.81f, 0, 238.6725f), // Row 0: fx, 0, cx
+        new(0, 324.81f, 239.00625f), // Row 1: 0, fy, cy
+        new(0, 0, 1)  // Row 2: 0,  0,  1
+    };
+    
+    public static readonly Vector2 ModelResolution = new Vector2(480, 480); 
+    public static readonly int Width = 480;
+    public static readonly int Height = 480;
 }

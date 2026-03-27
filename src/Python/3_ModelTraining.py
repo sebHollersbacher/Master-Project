@@ -33,7 +33,7 @@ dataset_config_racket = {
     # 'flip_idx': [0, 2, 1, 3, 4, 6, 5, 8, 7, 9, 10, 11, 12]
 }
 
-dataset_config = dataset_config_racket
+dataset_config = dataset_config_pen
 
 if __name__ == '__main__':
     print(f"Generating config file at {YAML_PATH}...")
@@ -53,7 +53,7 @@ if __name__ == '__main__':
     # results = model.train(
     #     data=YAML_PATH,
     #     epochs=100,
-    #     imgsz=640,
+    #     imgsz=480,
     #     batch=16,
     #     patience=15,
     #     project=os.path.join(BASE_DIR, 'runs'),
@@ -61,38 +61,43 @@ if __name__ == '__main__':
     #     exist_ok=True,
     #     device=device,
     #     workers=2,
-    #     translate = 0.3,
+    #     translate=0.2,
     # )
 
     # train racket-model
-    results = model.train(
-        data=YAML_PATH,
-        epochs=100,
-        imgsz=640,
-        batch=16,
-        patience=15,
-        project=os.path.join(BASE_DIR, 'runs'),
-        name='racket_pose',
-        exist_ok=True,
-        device=device,
-        workers=2,
-        translate=0.3,
-    )
-
-    # train pen-model
     # results = model.train(
     #     data=YAML_PATH,
     #     epochs=100,
-    #     imgsz=640,
+    #     imgsz=480,
     #     batch=16,
     #     patience=15,
     #     project=os.path.join(BASE_DIR, 'runs'),
-    #     name='pen_pose',  # UPDATED: Changed project name
+    #     name='racket_pose',
     #     exist_ok=True,
     #     device=device,
     #     workers=2,
-    #     fliplr=0.0,
-    #     translate = 0.45,
-    #     mosaic=0.0
+    #     translate=0.2,
     # )
+
+    # train pen-model
+    results = model.train(
+        data=YAML_PATH,
+        epochs=100,
+        imgsz=480,
+        batch=16,
+        patience=25,
+        project=os.path.join(BASE_DIR, 'runs'),
+        name='pen_pose',
+        exist_ok=True,
+        device=device,
+        workers=4,
+        fliplr=0.0,
+        translate=0.15,
+        scale=0.4,
+        degrees=0.0,
+        mosaic=0.0,
+        cos_lr=True,
+        hsv_s=0.7,
+        hsv_v=0.4,
+    )
     print(f"Training Complete!")

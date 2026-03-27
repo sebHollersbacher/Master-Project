@@ -55,7 +55,7 @@ public class Helper
         float cx = left * fx;
         float cy = top * fy;
 
-        // fx: 144.4381, fy: 133.6766; cx: 121.198, cy: 129.09
+        // fx: 144.4381, fy: 133.6766; cx: 121.198, cy: 129.09 (flipped for OpenCV)
         Debug.Log($"[Helper] Depth Intrinsics: fx: {fx}, fy: {fy}; cx: {cx}, cy: {cy}");
     }
 }

@@ -92,7 +92,12 @@ public class Detection : MonoBehaviour
         // Fine Grid (Stride 8): 6400
         // Medium Grid (Stride 16): 1600
         // Coarse Grid (Stride 32): 400
-        int numAnchors = 8400; // for 640x640
+        // int numAnchors = 8400; // for 640x640
+        
+        // Fine Grid (Stride 8): 3600
+        // Medium Grid (Stride 16): 900
+        // Coarse Grid (Stride 32): 225
+        int numAnchors = 4725; // for 480x480
         float highestScore = 0f;
         int bestAnchorIndex = -1;
 

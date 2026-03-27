@@ -5,7 +5,7 @@ import random
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SOURCE_DIR = os.path.join(BASE_DIR, 'train_images')
 DEST_DIR = os.path.join(BASE_DIR, 'datasets')
-TRAIN_RATIO = 0.8
+TRAIN_RATIO = 0.75
 
 IMAGE_PATH = "images"
 LABELS_PATH = "labels"

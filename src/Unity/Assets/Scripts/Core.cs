@@ -22,7 +22,7 @@ public class Core : MonoBehaviour
     private KeypointVisualizer _keypointVisualizerScript;
     private DepthHelper _depthHelper;
 
-    private Constants.TargetModel _currentTarget = Constants.TargetModel.Pikachu;
+    private Constants.TargetModel _currentTarget = Constants.TargetModel.Pen;
     private RenderTexture downscaledTexture;
     private float sendTimer;
 
@@ -75,16 +75,17 @@ public class Core : MonoBehaviour
                 {
                     var correctedPose = _detectionScript.TransformDetectionToOrigin(matrix.Value,
                         _cameraAccess.Intrinsics.LensOffset);
-                    _trackingScript.UpdateTrackerDetection(_currentTarget, correctedPose);
+                    // _trackingScript.UpdateTrackerDetection(_currentTarget, correctedPose);
+                    _mappingScript.UpdatePose(_currentTarget, correctedPose);
                 }
             }
 
-            _currentTarget = _currentTarget switch
-            {
-                Constants.TargetModel.Pikachu => Constants.TargetModel.Pen,
-                // Constants.TargetModel.Racket => Constants.TargetModel.Pen,
-                Constants.TargetModel.Pen => Constants.TargetModel.Pikachu,
-            };
+            // _currentTarget = _currentTarget switch
+            // {
+            //     Constants.TargetModel.Pikachu => Constants.TargetModel.Pen,
+            //     Constants.TargetModel.Racket => Constants.TargetModel.Pen,
+            //     Constants.TargetModel.Pen => Constants.TargetModel.Pikachu,
+            // };
         }
 
         NativeArray<Color32>
@@ -101,8 +102,8 @@ public class Core : MonoBehaviour
 
         foreach (Constants.TargetModel target in Enum.GetValues(typeof(Constants.TargetModel)))
         {
-            var newPose = _trackingScript.GetPose(target);
-            _mappingScript.UpdatePose(target, newPose);
+            // var newPose = _trackingScript.GetPose(target);
+            // _mappingScript.UpdatePose(target, newPose);
         }
     }
 

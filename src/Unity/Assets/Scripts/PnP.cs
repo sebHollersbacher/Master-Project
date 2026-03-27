@@ -25,7 +25,7 @@ public class PnP
     {
         return target switch
         {
-            Constants.TargetModel.Pen => GetPenPoseMatrix(result.boundingBox, result.keypoints),
+            Constants.TargetModel.Pen => SolvePnP(result.keypoints, Constants.PenPoints),
             Constants.TargetModel.Racket => SolvePnP(result.keypoints, Constants.RacketPoints),
             Constants.TargetModel.Pikachu => SolvePnP(result.keypoints, Constants.PikachuPoints),
             _ => throw new ArgumentOutOfRangeException()
@@ -34,8 +34,6 @@ public class PnP
 
     public Matrix4x4? SolvePnP(List<Vector2> imagePoints, List<Vector3> modelPoints)
     {
-        Debug.Log("[DEBUG] PnP Start");
-        // 1. Safety Checks
         if (imagePoints == null || imagePoints.Count != modelPoints.Count)
         {
             Debug.LogWarning(
@@ -71,18 +69,15 @@ public class PnP
         };
 
         float[] result = new float[7];
-
-        // 4. Call OpenCV Native
         SolvePnP_Ransac_Entry(flat3D, count, flat2D, camMatFlat, result);
 
-        // 5. Apply Result
         if (result[6] > 0.5f) // Success flag
         {
             var res = ParseResult(result);
             return res;
         }
 
-        Debug.Log("[DEBUG] PnP Unsuccessful");
+        Debug.Log("[PnP] PnP Unsuccessful");
         return null;
     }
 

@@ -27,16 +27,25 @@ OBJ_NAME = 'Pen'
 file_prefix = "pen"
 BG_IMAGES_PATH = os.path.join(BASE_DIR, 'indoor_backgrounds')
 OUTPUT_DIR = os.path.join(BASE_DIR, 'train_images')
-object_id=2
+object_id=0
 NUM_IMAGES = 2000
 
 # camera intrinsics
-CAM_WIDTH = 640
-CAM_HEIGHT = 640
-CAM_FX = 433.08
-CAM_FY = 433.08
-CAM_CX = 318.235
-CAM_CY = 318.675
+# 640x640
+# CAM_WIDTH = 640
+# CAM_HEIGHT = 640
+# CAM_FX = 433.08
+# CAM_FY = 433.08
+# CAM_CX = 318.235
+# CAM_CY = 318.675
+
+# 480x480
+CAM_WIDTH = 480
+CAM_HEIGHT = 480
+CAM_FX = 324.81
+CAM_FY = 324.81
+CAM_CX = 238.6725
+CAM_CY = 239.00625
 
 kpts_3d_Pikachu = [
     (-0.03317, 0.032222, 0.026848),  # left cheeck
@@ -70,7 +79,7 @@ kpts_3d_Racket = [
 ]
 
 kpts_3d_Pen = [
-    (0, -0.079072, 0),   # Tip
+    (0, -0.077072, 0),   # Tip
     (0, -0.067886, 0),   # Wood
     (0, -0.065458, 0),  # First Points
     (0, 0.032303, 0),  # G
@@ -79,9 +88,8 @@ kpts_3d_Pen = [
     (0, 0.088626, 0),  # Border Top
     (0, 0.090359, 0),  # Top
 ]
-near = 0.15
-far = 0.35
-is_pen = False
+near = 0.20
+far = 0.7
 
 kpts_3d = kpts_3d_Pen
 

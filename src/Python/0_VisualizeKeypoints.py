@@ -3,7 +3,7 @@ import os
 import math
 from mathutils import Vector, Euler
 
-obj_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ObjectModels", "TT_Racket.obj")
+obj_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ObjectModels", "Pen.obj")
 SPHERE_RADIUS = 0.01
 # Misalignment between OpenCV and Blender (OpenCV Z-Forward to Blender Z-Up)
 ROTATION_X_DEG = 90
@@ -41,7 +41,7 @@ kpts_3d_Racket = [
 ]
 
 kpts_3d_Pen = [
-    (0, -0.079072, 0),   # Tip
+    (0, -0.077072, 0),   # Tip
     (0, -0.067886, 0),   # Wood
     (0, -0.065458, 0),  # First Points
     (0, 0.032303, 0),  # G
@@ -51,7 +51,7 @@ kpts_3d_Pen = [
     (0, 0.090359, 0),  # Top
 ]
 
-kpts_3d = kpts_3d_Racket
+kpts_3d = kpts_3d_Pen
 
 
 def clear_scene():
