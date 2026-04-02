@@ -8,7 +8,7 @@ from ultralytics import YOLO
 
 INPUT_FOLDER = './datasets/images/val'
 OUTPUT_FOLDER = './output_results'
-MODEL_PATH = './runs/pikachu_pose/weights/best.pt'
+MODEL_PATH = './runs/pen_pose/weights/best.pt'
 CONF_THRESHOLD = 0.8
 
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
@@ -45,17 +45,18 @@ pts_racket = np.array([
 ], dtype=np.float32)
 
 pts_pen =  np.array([
-    (0, -0.077072, 0),   # Tip
-    (0, -0.067886, 0),   # Wood
-    (0, -0.065458, 0),  # First Points
-    (0, 0.032303, 0),  # G
-    (0, 0.052052, 0),  # Logo
-    (0, 0.025107, 0),  # Last Points
-    (0, 0.088626, 0),  # Border Top
-    (0, 0.090359, 0),  # Top
+    (0.000000, -0.082259, 0.000000),  # 0: Tip
+    (0.001036, 0.090359, -0.001282),  # 1: Top
+    (-0.002065, -0.059794, -0.003431),  # 2: Corner 1, grip
+    (0.002856, -0.062973, -0.002380),  # 3: Corner 2, grip
+    (-0.001383, -0.060672, 0.004303),  # 4: Corner 3, grip
+    (-0.001565, 0.040400, -0.004019),  # 5: Corner 1, upper
+    (0.004084, 0.042871, -0.002889),  # 6: Corner 2, upper
+    (-0.001036, 0.038890, 0.003492),  # 7: Corner 3, upper
+    (-0.001404, -0.065066, -0.000396),  # 8: Grip dot
 ], dtype=np.float32)
 
-object_pts = pts_pikachu
+object_pts = pts_pen
 
 camera_matrix = np.array([
     [324.81, 0, 238.6725],

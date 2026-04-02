@@ -2,13 +2,10 @@ using UnityEngine;
 
 public class Mapping : MonoBehaviour
 {
-    [SerializeField] private Transform pikachuTransform;
-    [SerializeField] private Transform racketTransform;
-    [SerializeField] private Transform penTransform;
-
+    [SerializeField] private Transform _targetTransform;
     [SerializeField] private Transform centerEyeAnchor;
     
-    public void UpdatePose(Constants.TargetModel target, Matrix4x4 pose)
+    public void UpdatePose(Matrix4x4 pose)
     {
         // Convert from OpenCV to Unity
         Vector3 rawPos = new Vector3(pose.m03, -pose.m13, pose.m23);
@@ -23,16 +20,9 @@ public class Mapping : MonoBehaviour
         Vector3 finalWorldPos = centerEyeAnchor.TransformPoint(rawPos);
         Quaternion finalWorldRot = centerEyeAnchor.rotation * rawRot;
 
-        var targetTransform = target switch
-        {
-            Constants.TargetModel.Racket => racketTransform,
-            Constants.TargetModel.Pikachu => pikachuTransform,
-            Constants.TargetModel.Pen => penTransform
-        };
-
-        targetTransform.position = finalWorldPos;
-        targetTransform.rotation = finalWorldRot;
-        // targetTransform.position = Vector3.Lerp(targetTransform.position, finalWorldPos, 0.3f);
-        // targetTransform.rotation = Quaternion.Slerp(targetTransform.rotation, finalWorldRot, 0.3f);
+        _targetTransform.position = finalWorldPos;
+        _targetTransform.rotation = finalWorldRot;
+        // _targetTransform.position = Vector3.Lerp(_targetTransform.position, finalWorldPos, 0.3f);
+        // _targetTransform.rotation = Quaternion.Slerp(_targetTransform.rotation, finalWorldRot, 0.3f);
     }
 }

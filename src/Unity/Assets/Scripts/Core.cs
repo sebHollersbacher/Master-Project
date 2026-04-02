@@ -11,8 +11,9 @@ using Debug = UnityEngine.Debug;
 public class Core : MonoBehaviour
 {
     [SerializeField] private RawImage rgbImage;
+    [SerializeField] private Constants.TargetModel currentTarget = Constants.TargetModel.Pikachu;
 
-    private const float secondsPerFrame = 2f;
+    private const float secondsPerFrame = 0.5f;
 
     private PassthroughCameraAccess _cameraAccess;
     private Detection _detectionScript;
@@ -22,7 +23,6 @@ public class Core : MonoBehaviour
     private KeypointVisualizer _keypointVisualizerScript;
     private DepthHelper _depthHelper;
 
-    private Constants.TargetModel _currentTarget = Constants.TargetModel.Pen;
     private RenderTexture downscaledTexture;
     private float sendTimer;
 
@@ -66,21 +66,21 @@ public class Core : MonoBehaviour
         if (sendTimer >= secondsPerFrame)
         {
             sendTimer = 0f;
-            var result  = await _detectionScript.Inference(_currentTarget, cameraTexture, 0.7f);
+            var result = await _detectionScript.Inference(currentTarget, cameraTexture, 0.7f);
             if (result.isValid)
             {
                 _keypointVisualizerScript.UpdateVisuals(result.keypoints);
-                var matrix = _pnpScript.Solve(_currentTarget, result);
+                var matrix = _pnpScript.Solve(currentTarget, result);
                 if (matrix != null)
                 {
                     var correctedPose = _detectionScript.TransformDetectionToOrigin(matrix.Value,
                         _cameraAccess.Intrinsics.LensOffset);
-                    // _trackingScript.UpdateTrackerDetection(_currentTarget, correctedPose);
-                    _mappingScript.UpdatePose(_currentTarget, correctedPose);
+                    // _trackingScript.UpdateTrackerDetection(currentTarget, correctedPose);
+                    _mappingScript.UpdatePose(correctedPose);
                 }
             }
 
-            // _currentTarget = _currentTarget switch
+            // currentTarget = currentTarget switch
             // {
             //     Constants.TargetModel.Pikachu => Constants.TargetModel.Pen,
             //     Constants.TargetModel.Racket => Constants.TargetModel.Pen,
@@ -114,10 +114,12 @@ public class Core : MonoBehaviour
             await Task.Yield();
         }
 
+        rgbImage.texture = _cameraAccess.GetTexture();
+
         Debug.Log("[Camera] Camera Started");
-        Debug.Log($"[Camera] PrincipalPoint {_cameraAccess.Intrinsics.PrincipalPoint}"); // (636.47, 637.35)  not flipped
-        Debug.Log($"[Camera] FocalLength {_cameraAccess.Intrinsics.FocalLength}"); // (866.16, 866.16)
-        Debug.Log($"[Camera] SensorResolution {_cameraAccess.Intrinsics.SensorResolution}"); // (1280, 1280)
-        Debug.Log($"[Camera] LensOffset {_cameraAccess.Intrinsics.LensOffset}"); // ((0.03, -0.02, 0.06), (0.09526, -0.00290, 0.00387, 0.99544))
+        Debug.Log($"[Camera] PrincipalPoint {_cameraAccess.Intrinsics.PrincipalPoint}");
+        Debug.Log($"[Camera] FocalLength {_cameraAccess.Intrinsics.FocalLength}");
+        Debug.Log($"[Camera] SensorResolution {_cameraAccess.Intrinsics.SensorResolution}");
+        Debug.Log($"[Camera] LensOffset {_cameraAccess.Intrinsics.LensOffset}");
     }
 }

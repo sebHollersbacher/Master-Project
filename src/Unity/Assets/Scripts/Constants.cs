@@ -38,7 +38,7 @@ public class Constants
         new(0.002068f, -0.055594f, -0.006402f)    // 12: Purple Handle
     };
     
-    public static readonly List<Vector3> PenPoints = new List<Vector3>()
+    public static readonly List<Vector3> PenPoints_old = new List<Vector3>()
     {
         new(0.0f, -0.077072f, 0.0f),  // 0: Tip
         new(0.0f, -0.067886f, 0.0f),  // 1: Wood
@@ -48,6 +48,19 @@ public class Constants
         new(0.0f, 0.052052f, 0.0f),  // 5: Logo
         new(0.0f, 0.088626f, 0.0f),  // 6: Border Top
         new(0.0f, 0.090359f, 0.0f),  // 7: Top
+    };
+    
+    public static readonly List<Vector3> PenPoints = new List<Vector3>()
+    {
+        new(0.000000f, -0.082259f, 0.000000f),  // 0: Tip
+        new(0.001036f, 0.090359f, -0.001282f),  // 1: Top
+        new(-0.002065f, -0.059794f, -0.003431f),  // 2: Corner 1, grip
+        new(0.002856f, -0.062973f, -0.002380f),  // 3: Corner 2, grip
+        new(-0.001383f, -0.060672f, 0.004303f),  // 4: Corner 3, grip
+        new(-0.001565f, 0.040400f, -0.004019f),  // 5: Corner 1, upper
+        new(0.004084f, 0.042871f, -0.002889f),  // 6: Corner 2, upper
+        new(-0.001036f, 0.038890f, 0.003492f),  // 7: Corner 3, upper
+        new(-0.001404f, -0.065066f, -0.000396f),  // 8: Grip dot
     };
     
     public static readonly List<Vector3> CameraMatrixList640 = new List<Vector3>()

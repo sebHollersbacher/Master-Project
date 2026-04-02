@@ -11,7 +11,7 @@ dataset_config_pen = {
     'path': DATASET_ROOT,
     'train': 'images/train',
     'val': 'images/val',
-    'kpt_shape': [8, 3],
+    'kpt_shape': [9, 3],
     'names': {0: 'pen'},
 }
 

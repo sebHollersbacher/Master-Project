@@ -73,8 +73,7 @@ public class PnP
 
         if (result[6] > 0.5f) // Success flag
         {
-            var res = ParseResult(result);
-            return res;
+            return ParseResult(result);
         }
 
         Debug.Log("[PnP] PnP Unsuccessful");
@@ -86,74 +85,114 @@ public class PnP
         Vector3 tvec = new Vector3(result[0], result[1], result[2]);
         Vector3 rvec = new Vector3(result[3], result[4], result[5]);
 
-        // 1. Convert Rodrigues (Angle-Axis) to Quaternion
-        // The magnitude of rvec is the Angle (in Radians).
-        // The normalized rvec is the Axis.
         float angleRad = rvec.magnitude;
         Quaternion rotation = Quaternion.identity;
 
-        // Safety check: If angle is near 0, it's the identity rotation
         if (angleRad > 0.0001f)
         {
             Vector3 axis = rvec.normalized;
-            // Unity expects Degrees for AngleAxis
             rotation = Quaternion.AngleAxis(angleRad * Mathf.Rad2Deg, axis);
         }
 
-        // 2. Build the Matrix
-        // Note: We use Vector3.one for scale (PnP doesn't estimate scale)
         return Matrix4x4.TRS(tvec, rotation, Vector3.one);
     }
 
     public Matrix4x4? GetPenPoseMatrix(Rect boundingBox, List<Vector2> keypoints)
     {
         if (keypoints == null || keypoints.Count < 2) return null;
-
-        // 1. Flatten the List<Vector2> into a 1D float array for C++
+ 
+        var modelPoints = Constants.PenPoints;
+ 
+        // 1. Fit a robust line through all keypoints
         float[] p2D = new float[keypoints.Count * 2];
         for (int i = 0; i < keypoints.Count; i++)
         {
             p2D[i * 2] = keypoints[i].x;
             p2D[i * 2 + 1] = keypoints[i].y;
         }
-
-        // 2. Prepare the output array and call your C++ function!
+ 
         float[] lineParams = new float[4];
         FitLine2D_Entry(p2D, keypoints.Count, lineParams);
-
-        // 3. Extract the line data returned from C++
-        Vector2 V = new Vector2(lineParams[0], lineParams[1]).normalized; // Direction
-        Vector2 P0 = new Vector2(lineParams[2], lineParams[3]); // Point on line
-
-        // 3. Define the 4 corners of the Bounding Box
+ 
+        Vector2 V = new Vector2(lineParams[0], lineParams[1]).normalized;
+        Vector2 P0 = new Vector2(lineParams[2], lineParams[3]);
+ 
+        // 2. Project each keypoint onto the fitted line to get clean 1D positions
+        //    This removes noise perpendicular to the pen axis.
+        float[] projT = new float[keypoints.Count]; // signed distance along the line
+        for (int i = 0; i < keypoints.Count; i++)
+        {
+            projT[i] = Vector2.Dot(keypoints[i] - P0, V);
+        }
+ 
+        // 3. Estimate Z from all usable keypoint pairs
+        //    For each pair (i, j): pixelDist = |projT[i] - projT[j]|
+        //    realDist along pen axis = |modelY[i] - modelY[j]|
+        //    Z_estimate = fx * realDist / pixelDist
+        //    (This gives Z / cos(tilt), but since tilt is the same for all pairs,
+        //     the median is a robust estimate of Z / cos(tilt))
+        float fx = Constants.CameraMatrixList[0].x;
+        float cx = Constants.CameraMatrixList[0].z;
+        float fy = Constants.CameraMatrixList[1].y;
+        float cy = Constants.CameraMatrixList[1].z;
+ 
+        var depthEstimates = new List<float>();
+ 
+        // Minimum real-world distance to consider a pair (skip pairs too close together,
+        // e.g., points 1↔2 are only 2.4mm apart — pixel noise dominates)
+        const float minRealDist = 0.01f; // 1cm
+ 
+        int count = Mathf.Min(keypoints.Count, modelPoints.Count);
+        for (int i = 0; i < count; i++)
+        {
+            for (int j = i + 1; j < count; j++)
+            {
+                // Real 3D distance along the pen axis (Y component dominates since X,Z ≈ 0)
+                float realDist = Vector3.Distance(modelPoints[i], modelPoints[j]);
+                if (realDist < minRealDist) continue;
+ 
+                float pixelDist = Mathf.Abs(projT[i] - projT[j]);
+                if (pixelDist < 2.0f) continue; // too small in pixels to be reliable
+ 
+                float zEstimate = (fx * realDist) / pixelDist;
+                depthEstimates.Add(zEstimate);
+            }
+        }
+ 
+        if (depthEstimates.Count == 0) return null;
+ 
+        // 4. Take the median — robust against noisy/occluded keypoints
+        depthEstimates.Sort();
+        float Z = depthEstimates[depthEstimates.Count / 2];
+ 
+        if (Z < 0.05f || Z > 5.0f) return null; // sanity check
+ 
+        // 5. Find pen extremes using bounding box (as before)
         Vector2[] corners =
         {
-            new(boundingBox.xMin, boundingBox.yMin), // Top-Left
-            new(boundingBox.xMax, boundingBox.yMin), // Top-Right
-            new(boundingBox.xMin, boundingBox.yMax), // Bottom-Left
-            new(boundingBox.xMax, boundingBox.yMax) // Bottom-Right
+            new(boundingBox.xMin, boundingBox.yMin),
+            new(boundingBox.xMax, boundingBox.yMin),
+            new(boundingBox.xMin, boundingBox.yMax),
+            new(boundingBox.xMax, boundingBox.yMax)
         };
-
-        // 4. Project corners onto the infinite line
+ 
         float minT = float.MaxValue;
         float maxT = float.MinValue;
-
+ 
         foreach (Vector2 corner in corners)
         {
             float t = Vector2.Dot(corner - P0, V);
             if (t < minT) minT = t;
             if (t > maxT) maxT = t;
         }
-
-        // The absolute physical extremes of the pen
+ 
         Vector2 extremeA = P0 + (V * minT);
         Vector2 extremeB = P0 + (V * maxT);
-
-        // 5. Determine which is the Tip and which is the Base
-        // Assumes keypoints[0] is your noisy tip from YOLO
+ 
+        // 6. Determine tip vs base
         Vector2 noisyTip = keypoints[0];
         Vector2 trueTip, trueBase;
-
+ 
         if (Vector2.Distance(noisyTip, extremeA) < Vector2.Distance(noisyTip, extremeB))
         {
             trueTip = extremeA;
@@ -164,38 +203,20 @@ public class PnP
             trueTip = extremeB;
             trueBase = extremeA;
         }
-
-        float fx = Constants.CameraMatrixList[0].x; // Row 0, Col 0
-        float cx = Constants.CameraMatrixList[0].z; // Row 0, Col 2
-
-        float fy = Constants.CameraMatrixList[1].y; // Row 1, Col 1
-        float cy = Constants.CameraMatrixList[1].z; // Row 1, Col 2
-
-        float penRealLength = 0.1726f; // 17.26 cm
-
-        // 6. Calculate Rock-Solid Depth (Z)
-        float pixelLength = Vector2.Distance(trueTip, trueBase);
-        if (pixelLength < 1.0f) return null; // Prevent divide-by-zero
-
-        float Z = (fx * penRealLength) / pixelLength;
-
-        // 7. Unproject 2D to 3D Position (OpenCV Space)
+ 
+        // 7. Unproject 2D center to 3D position (OpenCV space)
         Vector2 center = (trueTip + trueBase) / 2f;
         float X = (center.x - cx) * Z / fx;
         float Y = (center.y - cy) * Z / fy;
-
-        // 8. Construct the Orthogonal Rotation Vectors
+ 
+        // 8. Construct rotation from 2D line direction
         Vector2 dir = (trueTip - trueBase).normalized;
-
-        // OpenCV Right-Handed System (X cross Y = Z). 
-        // Local Y points along the pen. Local Z points straight into the scene.
-        // Local X is the perpendicular vector (dir.y, -dir.x).
+ 
         Vector4 colX = new Vector4(dir.y, -dir.x, 0, 0);
         Vector4 colY = new Vector4(dir.x, dir.y, 0, 0);
         Vector4 colZ = new Vector4(0, 0, 1, 0);
-        Vector4 colW = new Vector4(X, Y, Z, 1); // Position vector
-
-        // 9. Build and return the raw OpenCV Matrix in one clean pass
+        Vector4 colW = new Vector4(X, Y, Z, 1);
+ 
         return new Matrix4x4(colX, colY, colZ, colW);
     }
 }
