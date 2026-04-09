@@ -53,7 +53,10 @@ public class Tracking
             Path.Combine(path, "pikachu_yaml.yaml"), 
             Path.Combine(path, "pikachu_region_model.bin"),
             Path.Combine(path, "pikachu_depth_model.bin"));
-        // AddObjectToTracker(Constants.TargetModel.Racket, Path.Combine(path, "racket_yaml.yaml"), Path.Combine(path, "racket_model.bin"));
+        AddObjectToTracker(Constants.TargetModel.Racket, 
+            Path.Combine(path, "racket_yaml.yaml"), 
+            Path.Combine(path, "racket_region_model.bin"),
+            Path.Combine(path, "racket_depth_model.bin"));
         AddObjectToTracker(Constants.TargetModel.Pen,
             Path.Combine(path, "pen_yaml.yaml"), 
             Path.Combine(path, "pen_region_model.bin"),
