@@ -6,6 +6,7 @@
 /runs
 /train_images
 /Models
+/validation_dataset
 
 /yolo11n.pt
 /yolov8n-pose.pt
