@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Threading.Tasks;
 using Meta.XR;
 using Unity.Collections;
@@ -75,17 +76,10 @@ public class Core : MonoBehaviour
                 {
                     var correctedPose = _detectionScript.TransformDetectionToOrigin(matrix.Value,
                         _cameraAccess.Intrinsics.LensOffset);
-                    // _trackingScript.UpdateTrackerDetection(currentTarget, correctedPose);
-                    _mappingScript.UpdatePose(correctedPose);
+                    _trackingScript.UpdateTrackerDetection(currentTarget, correctedPose);
+                    // _mappingScript.UpdatePose(correctedPose);
                 }
             }
-
-            // currentTarget = currentTarget switch
-            // {
-            //     Constants.TargetModel.Pikachu => Constants.TargetModel.Pen,
-            //     Constants.TargetModel.Racket => Constants.TargetModel.Pen,
-            //     Constants.TargetModel.Pen => Constants.TargetModel.Pikachu,
-            // };
         }
 
         NativeArray<Color32>
@@ -93,18 +87,18 @@ public class Core : MonoBehaviour
         AsyncGPUReadback.RequestIntoNativeArray(ref colorsBuffer, downscaledTexture).WaitForCompletion();
         _trackingScript.UpdateTrackerRGBImage(colorsBuffer);
         colorsBuffer.Dispose();
-        _depthHelper.CaptureAndSendDepth();
+        
+        var depthData = _depthHelper.CaptureAndSendDepth();
+        if(depthData != null)
+            _trackingScript.UpdateTrackerDepthImage(depthData.Value);
 
         for (var i = 0; i < 4; i++)
         {
             _trackingScript.UpdateTracker();
         }
 
-        foreach (Constants.TargetModel target in Enum.GetValues(typeof(Constants.TargetModel)))
-        {
-            // var newPose = _trackingScript.GetPose(target);
-            // _mappingScript.UpdatePose(target, newPose);
-        }
+        var newPose = _trackingScript.GetPose(currentTarget);
+        _mappingScript.UpdatePose(newPose);
     }
 
     public async void StartCamera()

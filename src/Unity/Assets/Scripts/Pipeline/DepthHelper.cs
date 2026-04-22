@@ -33,12 +33,12 @@ public class DepthHelper : MonoBehaviour
         _trackingScript = trackingScript;
     }
     
-    public void CaptureAndSendDepth()
+    public NativeArray<ushort>? CaptureAndSendDepth()
     {
-        if (!_depthManager.IsDepthAvailable) return;
+        if (!_depthManager.IsDepthAvailable) return null;
 
         var depthTex = Shader.GetGlobalTexture("_EnvironmentDepthTexture");
-        if (depthTex == null) return;
+        if (depthTex == null) return null;
 
         depthComputeShader.SetTexture(_kernelIndex, "InputTexture", depthTex);
         depthComputeShader.SetTexture(_kernelIndex, "OutputTexture", _readableDepthTexture);
@@ -55,11 +55,10 @@ public class DepthHelper : MonoBehaviour
         if (readback.hasError)
         {
             Debug.LogError("[DepthHelper] Synchronous readback failed");
-            return;
+            return null;
         }
 
-        NativeArray<ushort> data = readback.GetData<ushort>();
-        _trackingScript?.UpdateTrackerDepthImage(data);
+        return readback.GetData<ushort>();
     }
 
     private void OnDestroy()
