@@ -570,6 +570,7 @@ GameObject:
   - component: {fileID: 111527603}
   - component: {fileID: 111527609}
   - component: {fileID: 111527614}
+  - component: {fileID: 111527616}
   - component: {fileID: 111527610}
   - component: {fileID: 111527612}
   - component: {fileID: 111527607}
@@ -700,6 +701,26 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DepthHelper
   depthComputeShader: {fileID: 7200000, guid: f32eeb0cebe5d8b43aac1a96086edb03, type: 3}
+--- !u!114 &111527616
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 111527601}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dd3080e2ba26dce40834f121cfa9ba16, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Evaluation
+  sessionPath: 
+  currentTarget: 2
+  mode: 3
+  minScore: 0.7
+  detectionInterval: 36
+  trackingIterationsPerFrame: 4
+  warmupFrames: 5
+  detectionScript: {fileID: 0}
 --- !u!1 &128513415
 GameObject:
   m_ObjectHideFlags: 0

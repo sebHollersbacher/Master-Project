@@ -575,6 +575,7 @@ GameObject:
   - component: {fileID: 111527607}
   - component: {fileID: 111527611}
   - component: {fileID: 111527615}
+  - component: {fileID: 111527616}
   m_Layer: 0
   m_Name: '[Logic]'
   m_TagString: Untagged
@@ -604,7 +605,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 111527601}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2d3b58402cf09c24aaa46d43c32398f5, type: 3}
   m_Name: 
@@ -700,6 +701,23 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DepthHelper
   depthComputeShader: {fileID: 7200000, guid: f32eeb0cebe5d8b43aac1a96086edb03, type: 3}
+--- !u!114 &111527616
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 111527601}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 40bcdfe001d8aef4483fb75bc495dc2a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BallSpawner
+  ballPrefab: {fileID: 2443598721366225857, guid: d277b10c70b091b48a9adcef3dd1a585, type: 3}
+  racketTransform: {fileID: 730915261}
+  spawnInterval: 5
+  spawnHeight: 1
+  maxBalls: 5
 --- !u!1 &128513415
 GameObject:
   m_ObjectHideFlags: 0
@@ -2676,7 +2694,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &365693111
 Transform:
   m_ObjectHideFlags: 0
@@ -2705,6 +2723,7 @@ GameObject:
   - component: {fileID: 379155376}
   - component: {fileID: 379155378}
   - component: {fileID: 379155379}
+  - component: {fileID: 379155380}
   m_Layer: 0
   m_Name: Collider
   m_TagString: TrackingObject
@@ -2751,9 +2770,9 @@ Rigidbody:
   m_ImplicitTensor: 1
   m_UseGravity: 0
   m_IsKinematic: 1
-  m_Interpolate: 0
+  m_Interpolate: 1
   m_Constraints: 0
-  m_CollisionDetection: 0
+  m_CollisionDetection: 3
 --- !u!64 &379155379
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -2761,7 +2780,7 @@ MeshCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 379155375}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 7c9ba28910a26ed4298e098df9282a31, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -2776,6 +2795,18 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: -2432090755550338912, guid: 4e92c080d98358442b0bd8d385167b91, type: 3}
+--- !u!114 &379155380
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 379155375}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a7c430e8db7813549962c1114880fa48, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RacketPhysics
 --- !u!4 &392840065 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8559772660787471312, guid: d478ef999a9d5dd448be5ffeb6ffa615, type: 3}
@@ -6028,11 +6059,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: 81a297c7330faa5478667894cdae3fe4, type: 3}
       propertyPath: m_LocalScale.x
-      value: 1
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 81a297c7330faa5478667894cdae3fe4, type: 3}
       propertyPath: m_LocalScale.y
-      value: 1
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 81a297c7330faa5478667894cdae3fe4, type: 3}
       propertyPath: m_LocalScale.z
@@ -6056,7 +6087,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 81a297c7330faa5478667894cdae3fe4, type: 3}
       propertyPath: m_LocalRotation.x
-      value: -0.00000003774895
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 81a297c7330faa5478667894cdae3fe4, type: 3}
       propertyPath: m_LocalRotation.y
@@ -6064,7 +6095,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 81a297c7330faa5478667894cdae3fe4, type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 81a297c7330faa5478667894cdae3fe4, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
