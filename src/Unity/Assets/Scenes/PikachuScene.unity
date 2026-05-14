@@ -253,7 +253,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5325651034816108330, guid: 0e9e59a9b5566489fad35afecaeac3a9, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6182922352048559143, guid: 0e9e59a9b5566489fad35afecaeac3a9, type: 3}
       propertyPath: m_Pivot.x
@@ -576,6 +576,7 @@ GameObject:
   - component: {fileID: 111527607}
   - component: {fileID: 111527611}
   - component: {fileID: 111527615}
+  - component: {fileID: 111527617}
   m_Layer: 0
   m_Name: '[Logic]'
   m_TagString: Untagged
@@ -669,9 +670,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4d11fe91ec9634c418daf32ce5c7ff76, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Detection
-  pikachuModel: {fileID: 5022602860645237092, guid: ba3e31bbdfcbdc34ea11d46a1804723c, type: 3}
-  penModel: {fileID: 5022602860645237092, guid: 51fcef31db9eb02459d77602c509608f, type: 3}
-  racketModel: {fileID: 5022602860645237092, guid: 7f4c574080f4a894ba44f3d613379f7b, type: 3}
+  model: {fileID: 5022602860645237092, guid: 61e03b33092e19345a6612e8d0d19e6c, type: 3}
 --- !u!114 &111527614
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -715,12 +714,23 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Evaluation
   sessionPath: 
   currentTarget: 2
-  mode: 3
   minScore: 0.7
   detectionInterval: 36
   trackingIterationsPerFrame: 4
   warmupFrames: 5
   detectionScript: {fileID: 0}
+--- !u!114 &111527617
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 111527601}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4efe8a1191fb74843be52b83140767a7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FrameCapture
 --- !u!1 &128513415
 GameObject:
   m_ObjectHideFlags: 0
@@ -2697,7 +2707,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &365693111
 Transform:
   m_ObjectHideFlags: 0

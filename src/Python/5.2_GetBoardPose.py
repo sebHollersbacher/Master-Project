@@ -1,18 +1,17 @@
 import cv2
 import numpy as np
-import json
 from pathlib import Path
 
-session_dir = Path("validation_dataset/racket")
-frame_indices = [10, 50, 100, 150, 200]
+session_dir = Path("train_images/recorded/pikachu_original")
+frame_indices = [5,75,175,265]
 
 dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
 board = cv2.aruco.CharucoBoard((7, 5), 0.024, 0.018, dictionary)
 detector = cv2.aruco.CharucoDetector(board)
 
 K = np.array([
-    [324.81, 0.00, 238.676],
-    [0.00, 324.81, 239.006],
+    [433.08, 0.00, 318.235],
+    [0.00, 433.08, 318.675],
     [0.00, 0.00, 1.000]
 ])
 dist = np.zeros(5)

@@ -11,7 +11,6 @@ public class DepthHelper : MonoBehaviour
 
     private RenderTexture _readableDepthTexture;
     private EnvironmentDepthManager _depthManager;
-    private Tracking _trackingScript;
     private byte[] _managedDepthBuffer;
     private GCHandle _depthBufferHandle;
     private int _kernelIndex;
@@ -26,11 +25,6 @@ public class DepthHelper : MonoBehaviour
         _readableDepthTexture.Create();
 
         _kernelIndex = depthComputeShader.FindKernel("CSMain");
-    }
-
-    public void setTrackingScript(Tracking trackingScript)
-    {
-        _trackingScript = trackingScript;
     }
     
     public NativeArray<ushort>? CaptureAndSendDepth()

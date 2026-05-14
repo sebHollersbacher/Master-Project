@@ -6,14 +6,12 @@ using Unity.InferenceEngine;
 
 public class Detection : MonoBehaviour
 {
-    [SerializeField] private ModelAsset pikachuModel;
-    [SerializeField] private ModelAsset penModel;
-    [SerializeField] private ModelAsset racketModel;
+    [SerializeField] private ModelAsset model;
     
     private Model runtimeModel;
     private Tensor<float> inputTensor;
     private RenderTexture copyTexture;
-    private Dictionary<Constants.TargetModel, Worker> workers = new();
+    private Worker worker;
     
     public struct YoloResult
     {
@@ -25,9 +23,8 @@ public class Detection : MonoBehaviour
 
     public void Start()
     {
-        workers[Constants.TargetModel.Pikachu] = new Worker(ModelLoader.Load(pikachuModel), BackendType.GPUCompute);
-        workers[Constants.TargetModel.Racket] = new Worker(ModelLoader.Load(racketModel), BackendType.GPUCompute);
-        workers[Constants.TargetModel.Pen] = new Worker(ModelLoader.Load(penModel), BackendType.GPUCompute);
+        var wrappedModel = WrapModelWithPostprocess(model);
+        worker = new Worker(wrappedModel, BackendType.GPUCompute);
 
         inputTensor = new Tensor<float>(new TensorShape(1, 3, Constants.Height, Constants.Width));
         copyTexture = new RenderTexture(Constants.Width, Constants.Height, 0, RenderTextureFormat.ARGB32);
@@ -35,10 +32,8 @@ public class Detection : MonoBehaviour
 
     public void OnDestroy()
     {
-        foreach (var worker in workers.Values)
-        {
-            worker?.Dispose();
-        }
+        worker?.Dispose();
+        
         inputTensor?.Dispose();
         if (copyTexture != null) copyTexture.Release();
     }
@@ -48,35 +43,47 @@ public class Detection : MonoBehaviour
         // M3T origin is now centerEyeAnchor, transform the Detection from RGB-Camera to Origin
         Matrix4x4 lensLocalUnity = Matrix4x4.TRS(lensOffset.position, lensOffset.rotation, Vector3.one);
 
-        // convert to OpenCV
         Matrix4x4 flipY = Matrix4x4.Scale(new Vector3(1, -1, 1));
         Matrix4x4 lensLocalOpenCv = flipY * lensLocalUnity * flipY;
 
         return lensLocalOpenCv * newDetection;
     }
-
-    public async Task<YoloResult> Inference(Constants.TargetModel target, Texture cameraTexture, float minScore)
+    
+    private Model WrapModelWithPostprocess(ModelAsset modelAsset)
     {
-        // copy and scale if required
-        Graphics.Blit(cameraTexture, copyTexture); 
+        Model baseModel = ModelLoader.Load(modelAsset);
 
+        FunctionalGraph graph = new FunctionalGraph();
+        FunctionalTensor[] inputs = graph.AddInputs(baseModel);
+
+        FunctionalTensor output = Functional.Forward(baseModel, inputs)[0];
+        FunctionalTensor confidenceScores = output[0, 4];
+        FunctionalTensor bestIdx = Functional.ArgMax(confidenceScores, dim: 0);
+
+        // reshape to use best prediction
+        FunctionalTensor idxTensor = Functional.Reshape(bestIdx, new[] { 1 });
+        FunctionalTensor bestPred = output.IndexSelect(2, idxTensor);
+        bestPred = bestPred[0, .., 0];
+
+        return graph.Compile(bestPred);
+    }
+
+    public async Task<YoloResult> Inference(Texture cameraTexture, float minScore)
+    {
+        Graphics.Blit(cameraTexture, copyTexture);
         TextureConverter.ToTensor(copyTexture, inputTensor,
             new TextureTransform().SetTensorLayout(TensorLayout.NCHW));
+        worker.Schedule(inputTensor);
 
-        Worker activeWorker = workers[target];
-        activeWorker.Schedule(inputTensor);
+        Tensor<float> outputTensor = worker.PeekOutput() as Tensor<float>;
+        int numFeatures = outputTensor.shape[0];
 
-        Tensor<float> outputTensor = activeWorker.PeekOutput() as Tensor<float>;
-        int numFeatures = outputTensor.shape[1]; // 1-4: bounding box, 5: confidence, rest: keypoints
-        
         try
         {
-            // get output to cpu
             Tensor<float> cpuTensor = await outputTensor.ReadbackAndCloneAsync();
             float[] data = cpuTensor.DownloadToArray();
             cpuTensor.Dispose();
-            var result = ParseKeypoints(data, minScore, numFeatures);
-            return result;
+            return ParseKeypoints(data, minScore, numFeatures);
         }
         catch (Exception e)
         {
@@ -84,61 +91,34 @@ public class Detection : MonoBehaviour
             return new YoloResult { isValid = false };
         }
     }
-    
+
     public YoloResult ParseKeypoints(float[] data, float minScore, int numFeatures)
     {
         YoloResult result = new YoloResult { isValid = false, keypoints = new List<Vector2>() };
-        
-        // Fine Grid (Stride 8): 6400
-        // Medium Grid (Stride 16): 1600
-        // Coarse Grid (Stride 32): 400
-        // int numAnchors = 8400; // for 640x640
-        
-        // Fine Grid (Stride 8): 3600
-        // Medium Grid (Stride 16): 900
-        // Coarse Grid (Stride 32): 225
-        int numAnchors = 4725; // for 480x480
-        float highestScore = 0f;
-        int bestAnchorIndex = -1;
 
-        // get most confident prediction
-        for (int a = 0; a < numAnchors; a++)
+        // data layout: [cx, cy, w, h, confidence, kx0, ky0, kc0, kx1, ky1, kc1, ...]
+        float confidence = data[4];
+
+        if (confidence < minScore)
+            return result;
+
+        result.isValid = true;
+        result.confidence = confidence;
+
+        float cx = data[0];
+        float cy = data[1];
+        float w  = data[2];
+        float h  = data[3];
+        result.boundingBox = new Rect(cx - (w / 2f), cy - (h / 2f), w, h);
+
+        int numKeypoints = (numFeatures - 5) / 3;
+        for (int k = 0; k < numKeypoints; k++)
         {
-            float score = data[4 * numAnchors + a];
-            if (score > minScore && score > highestScore)
-            {
-                highestScore = score;
-                bestAnchorIndex = a;
-            }
-        }
-
-        // extract bounding box and keypoints
-        if (bestAnchorIndex != -1)
-        {
-            result.isValid = true;
-            result.confidence = highestScore;
-            
-            // bounding box
-            float cx = data[(0 * numAnchors) + bestAnchorIndex];
-            float cy = data[(1 * numAnchors) + bestAnchorIndex];
-            float w  = data[(2 * numAnchors) + bestAnchorIndex];
-            float h  = data[(3 * numAnchors) + bestAnchorIndex];
-            
-            result.boundingBox = new Rect(cx - (w / 2f), cy - (h / 2f), w, h);
-            
-            // keypoints
-            int numKeypoints = (numFeatures - 5) / 3;
-            for (int k = 0; k < numKeypoints; k++)
-            {
-                // Keypoints start at feature index 5. Each has X, Y, Conf
-                int kptBaseFeature = 5 + (k * 3);
-            
-                float kptX = data[(kptBaseFeature + 0) * numAnchors + bestAnchorIndex];
-                float kptY = data[(kptBaseFeature + 1) * numAnchors + bestAnchorIndex];
-                // float kptConf = data[(kptBaseFeature + 2) * numAnchors + bestAnchorIndex];   // not used but available
-
-                result.keypoints.Add(new Vector2(kptX, kptY)); 
-            }
+            int baseIdx = 5 + (k * 3);
+            float kptX = data[baseIdx + 0];
+            float kptY = data[baseIdx + 1];
+            // float kptConf = data[baseIdx + 2]; // available if needed
+            result.keypoints.Add(new Vector2(kptX, kptY));
         }
 
         return result;

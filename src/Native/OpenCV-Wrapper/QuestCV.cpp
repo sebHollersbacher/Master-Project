@@ -8,7 +8,7 @@ extern "C"
     // p3D: Array of x,y,z (size = count * 3)
     // p2D: Array of x,y   (size = count * 2)
     // camMatrixData: Array of 9 floats (3x3 matrix)
-    // outputArr: Array of 7 floats to store result (tx, ty, tz, rx, ry, rz, success_flag)
+    // outputArr: Array of 9 floats (tx, ty, tz, rx, ry, rz, success, inlierCount, meanReprojError)
     void SolvePnP_Ransac_Entry(float *p3D, int count, float *p2D, float *camMatrixData, float *outputArr)
     {
 
@@ -37,47 +37,48 @@ extern "C"
             rvec,
             tvec,
             false,
-            100,
-            8.0f,
+            200,
+            5.0f,
             0.99,
             inliers,
-            cv::SOLVEPNP_ITERATIVE);
+            cv::SOLVEPNP_EPNP);
 
-        if (success)
+        if (success && (int)inliers.size() >= 4)
         {
-            outputArr[0] = (float)tvec.at<double>(0); // tx
-            outputArr[1] = (float)tvec.at<double>(1); // ty
-            outputArr[2] = (float)tvec.at<double>(2); // tz
-            outputArr[3] = (float)rvec.at<double>(0); // rx
-            outputArr[4] = (float)rvec.at<double>(1); // ry
-            outputArr[5] = (float)rvec.at<double>(2); // rz
-            outputArr[6] = 1.0f;                      // Success
+            // Refine with Levenberg-Marquardt on inliers only
+            std::vector<cv::Point3f> inlierObj;
+            std::vector<cv::Point2f> inlierImg;
+            for (int idx : inliers)
+            {
+                inlierObj.push_back(objectPoints[idx]);
+                inlierImg.push_back(imagePoints[idx]);
+            }
+            cv::solvePnPRefineLM(inlierObj, inlierImg, camMatrix, distCoeffs, rvec, tvec);
+
+            // Calculate mean reprojection error on all inliers
+            std::vector<cv::Point2f> projected;
+            cv::projectPoints(inlierObj, rvec, tvec, camMatrix, distCoeffs, projected);
+            float totalErr = 0.0f;
+            for (size_t i = 0; i < projected.size(); i++)
+                totalErr += (float)cv::norm(projected[i] - inlierImg[i]);
+            float meanReproj = totalErr / (float)projected.size();
+
+            outputArr[0] = (float)tvec.at<double>(0);
+            outputArr[1] = (float)tvec.at<double>(1);
+            outputArr[2] = (float)tvec.at<double>(2);
+            outputArr[3] = (float)rvec.at<double>(0);
+            outputArr[4] = (float)rvec.at<double>(1);
+            outputArr[5] = (float)rvec.at<double>(2);
+            outputArr[6] = 1.0f;
+            outputArr[7] = (float)inliers.size();
+            outputArr[8] = meanReproj;
         }
         else
         {
-            outputArr[6] = 0.0f; // Failure
-        }
-    }
-
-    // p2D: Array of x,y (size = count * 2)
-    // outputArr: Array of 4 floats (vx, vy, x0, y0)
-    void FitLine2D_Entry(float* p2D, int count, float* outputArr) {
-        if (count < 2) return;
-
-        // Convert raw floats to OpenCV 2D Points
-        std::vector<cv::Point2f> points;
-        points.reserve(count);
-        for (int i = 0; i < count; i++) {
-            points.push_back(cv::Point2f(p2D[i * 2], p2D[i * 2 + 1])); 
-        }
-
-        // Fit Line
-        std::vector<float> lineParams; 
-        cv::fitLine(points, lineParams, cv::DIST_L2, 0, 0.01, 0.01);
-
-        // Output
-        for (int i = 0; i < 4; i++) {
-            outputArr[i] = lineParams[i];
+            // Failure
+            outputArr[6] = 0.0f;
+            outputArr[7] = 0.0f;
+            outputArr[8] = 999.0f;
         }
     }
 }

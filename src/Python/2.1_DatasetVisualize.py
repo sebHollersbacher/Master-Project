@@ -3,8 +3,9 @@ import random
 import cv2
 import matplotlib.pyplot as plt
 
-IMAGES_DIR = os.path.join("train_images", "images")
-LABELS_DIR = os.path.join("train_images", "labels")
+PATH="train_images/synthetic/pen"
+IMAGES_DIR = os.path.join(PATH, "images")
+LABELS_DIR = os.path.join(PATH, "labels")
 
 def visualize_random_samples(num_samples=5):
     valid_extensions = ('.png', '.jpg', '.jpeg')
@@ -41,17 +42,25 @@ def visualize_random_samples(num_samples=5):
                     px2 = int((box_cx + box_w / 2) * w)
                     py2 = int((box_cy + box_h / 2) * h)
 
-                    cv2.rectangle(img, (px1, py1), (px2, py2), (0, 255, 0), 2)
+                    # cv2.rectangle(img, (px1, py1), (px2, py2), (0, 255, 0), 2)
 
                     # keypoints
                     kpts = parts[5:]
                     for i in range(0, len(kpts), 3):
-                        kx, ky = kpts[i], kpts[i + 1]
+                        kx, ky, vis = kpts[i], kpts[i + 1], int(kpts[i + 2])
 
                         if kx > 0 and ky > 0:
                             pt_x = int(kx * w)
                             pt_y = int(ky * h)
-                            cv2.circle(img, (pt_x, pt_y), radius=4, color=(255, 0, 0), thickness=-1)
+
+                            if vis == 2:
+                                color = (255, 0, 0)  # red = visible
+                            elif vis == 1:
+                                color = (255, 165, 0)  # orange = occluded
+                            else:
+                                continue
+
+                            cv2.circle(img, (pt_x, pt_y), radius=4, color=color, thickness=-1)
         else:
             print(f"No label for {img_name}")
 

@@ -3,68 +3,49 @@ import os
 import math
 from mathutils import Vector, Euler
 
-obj_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ObjectModels", "Pen.obj")
-SPHERE_RADIUS = 0.01
+obj_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ObjectModels", "TT_Racket.obj")
+SPHERE_RADIUS = 0.005
 # Misalignment between OpenCV and Blender (OpenCV Z-Forward to Blender Z-Up)
 ROTATION_X_DEG = 90
 
-# (x, y, z)
 kpts_3d_Pikachu = [
-    (-0.03317, 0.032222, 0.026848),  # left cheeck
-    (0.038824, 0.033323, 0.027113),  # right cheeck
-    (0.003446, 0.044969, 0.048924),  # nose
-    (-0.082297, 0.110011, 0.022695),  # left ear
-    (0.06744, 0.135588, 0.020059),  # right ear
+    (-0.032902, 0.04224, 0.02885),  # left cheeck
+    (0.039567, 0.044448, 0.029131),  # right cheeck
+    (-0.071736, 0.107214, 0.022556),  # left ear
+    (0.059494, 0.121871, 0.021735),  # right ear
     (-0.05225, -0.037227, 0.033301),  # left foot
     (0.031411, -0.106078, 0.03378),  # right foot
-    (0.004526, 0.024382, 0.042954),  # mouth
+    (0.003817, 0.031145, 0.045193),  # mouth
     (-0.007097, -0.033314, -0.067379),  # Tail Start
-    (0.017621, -0.016944, -0.043715),  # Brown top
-    (0.021618, -0.048971, -0.042163),  # Brown bottom
-    (-0.000972, -0.083431, 0.030024)  # bottom cross
+    (0.046248, -0.010721, -0.020798),  # Brown top
+    (0.009193, -0.084459, -0.031145)  # tail bottom
 ]
 
 kpts_3d_Racket = [
-    (0.000162, -0.128434, -0.011431),   # blue
-    (0.033001, -0.041097, -0.006767),   # purple left
-    (-0.031743, -0.03634, -0.007068),   # purple right
-    (-0.000218, 0.100594, -0.007402),   # purple top
-    (-0.003323, 0.098523, 0.006255),    # black top
-    (0.035348, -0.037745, 0.006527),    # black right
-    (-0.028726, -0.040778, 0.006669),   # black left
-    (0.066402, -0.031275, -0.00055),    # side left
-    (-0.062846, -0.03584, -0.001009),   # side right
-    (-0.001795, 0.105068, -0.001177),   # side top
-    (0.000657, -0.154482, 0.00027),   # bottom
-    (0.000125, -0.054361, 0.005995),   # black handle
-    (0.002068, -0.055594, -0.006402)   # purple handle
-]
-
-kpts_3d_Pen_old = [
-    (0, -0.077072, 0),   # Tip
-    (0, -0.067886, 0),   # Wood
-    (0, -0.065458, 0),  # First Points
-    (0, 0.032303, 0),  # G
-    (0, 0.052052, 0),  # Logo
-    (0, 0.025107, 0),  # Last Points
-    (0, 0.088626, 0),  # Border Top
-    (0, 0.090359, 0),  # Top
+    (0.001079, -0.142991, -0.01148),    # 0: label/sticker
+    (0.066402, -0.031275, -0.00055),     # 1: head left (widest)
+    (-0.075178, 0.01246, 0.000103),    # 2: head right (widest)
+    (-0.001795, 0.105068, -0.001177),    # 3: head top center
+    (0.001159, -0.052217, -0.006652),    # 4: junction center purple side
+    (-0.012959, -0.054215, 0.002821),     # 5: junction right black side
+    (-0.041474, -0.05266, -0.003546),    # 6: junction left purple side
+    (-0.031743, -0.03634, -0.007068),    # 7: rubber bottom-right purple side
+    (0.004968, -0.044034, 0.006658),     # 8: rubber bottom-left black side
 ]
 
 kpts_3d_Pen = [
-    (0.000000, -0.082259, 0.000000),  # 0: Tip
-    (0.001036, 0.090359, -0.001282),  # 1: Top
-    (-0.002065, -0.059794, -0.003431),  # 2: Corner 1, grip
-    (0.002856, -0.062973, -0.002380),  # 3: Corner 2, grip
-    (-0.001383, -0.060672, 0.004303),  # 4: Corner 3, grip
-    (-0.001565, 0.040400, -0.004019),  # 5: Corner 1, upper
-    (0.004084, 0.042871, -0.002889),  # 6: Corner 2, upper
-    (-0.001036, 0.038890, 0.003492),  # 7: Corner 3, upper
-    (-0.001404, -0.065066, -0.000396),  # 8: Grip dot
+    (0.000000, 0.094079, 0.000000),  # 0: Tip
+    (-0.002321, 0.08273, -0.002907),  # 1: corner wood 1
+    (-0.00221, 0.082837, 0.002933),  # 2: corner wood 2
+    (0.003344, 0.083185, -0.000018),  # 3: corner wood 3
+    (0.000181, 0.013831, -0.003172),  # 5: gold middle
+    (0.000268, -0.072056, -0.003084),  # 8: end 1
+    (-0.00282, -0.072235, 0.001861),  # 9: end 2
+    (0.003255, -0.072035, 0.001596),  # 10: end 3
+    (0.000000, -0.088983, 0.000000),  # 11: rubber
 ]
 
-kpts_3d = kpts_3d_Pen
-
+kpts_3d = kpts_3d_Racket
 
 def clear_scene():
     if bpy.context.active_object and bpy.context.active_object.mode != 'OBJECT':

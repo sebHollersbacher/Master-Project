@@ -37,7 +37,6 @@ public class Core : MonoBehaviour
         _trackingScript = new Tracking();
         _keypointVisualizerScript = GetComponent<KeypointVisualizer>();
         _depthHelper = GetComponent<DepthHelper>();
-        _depthHelper.setTrackingScript(_trackingScript);
 
         downscaledTexture = new RenderTexture(320, 320, 0, RenderTextureFormat.ARGB32);
         downscaledTexture.Create();
@@ -67,7 +66,7 @@ public class Core : MonoBehaviour
         if (sendTimer >= secondsPerFrame)
         {
             sendTimer = 0f;
-            var result = await _detectionScript.Inference(currentTarget, cameraTexture, 0.7f);
+            var result = await _detectionScript.Inference(cameraTexture, 0.75f);
             if (result.isValid)
             {
                 _keypointVisualizerScript.UpdateVisuals(result.keypoints);
@@ -76,29 +75,29 @@ public class Core : MonoBehaviour
                 {
                     var correctedPose = _detectionScript.TransformDetectionToOrigin(matrix.Value,
                         _cameraAccess.Intrinsics.LensOffset);
-                    _trackingScript.UpdateTrackerDetection(currentTarget, correctedPose);
-                    // _mappingScript.UpdatePose(correctedPose);
+                    // _trackingScript.UpdateTrackerDetection(currentTarget, correctedPose);
+                    _mappingScript.UpdatePose(correctedPose);
                 }
             }
         }
 
-        NativeArray<Color32>
-            colorsBuffer = new NativeArray<Color32>(320 * 320, Allocator.Persistent);
-        AsyncGPUReadback.RequestIntoNativeArray(ref colorsBuffer, downscaledTexture).WaitForCompletion();
-        _trackingScript.UpdateTrackerRGBImage(colorsBuffer);
-        colorsBuffer.Dispose();
-        
-        var depthData = _depthHelper.CaptureAndSendDepth();
-        if(depthData != null)
-            _trackingScript.UpdateTrackerDepthImage(depthData.Value);
-
-        for (var i = 0; i < 4; i++)
-        {
-            _trackingScript.UpdateTracker();
-        }
-
-        var newPose = _trackingScript.GetPose(currentTarget);
-        _mappingScript.UpdatePose(newPose);
+        // NativeArray<Color32>
+        //     colorsBuffer = new NativeArray<Color32>(320 * 320, Allocator.Persistent);
+        // AsyncGPUReadback.RequestIntoNativeArray(ref colorsBuffer, downscaledTexture).WaitForCompletion();
+        // _trackingScript.UpdateTrackerRGBImage(colorsBuffer);
+        // colorsBuffer.Dispose();
+        //
+        // var depthData = _depthHelper.CaptureAndSendDepth();
+        // if(depthData != null)
+        //     _trackingScript.UpdateTrackerDepthImage(depthData.Value);
+        //
+        // for (var i = 0; i < 4; i++)
+        // {
+        //     _trackingScript.UpdateTracker();
+        // }
+        //
+        // var newPose = _trackingScript.GetPose(currentTarget);
+        // _mappingScript.UpdatePose(newPose);
     }
 
     public async void StartCamera()

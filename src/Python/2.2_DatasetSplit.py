@@ -3,8 +3,8 @@ import shutil
 import random
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SOURCE_DIR = os.path.join(BASE_DIR, 'train_images')
-DEST_DIR = os.path.join(BASE_DIR, 'datasets')
+SOURCE_DIR = os.path.join(BASE_DIR, 'train_images/synthetic/pen')
+DEST_DIR = os.path.join(BASE_DIR, 'datasets/pen')
 TRAIN_RATIO = 0.75
 
 IMAGE_PATH = "images"

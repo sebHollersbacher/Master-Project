@@ -2,11 +2,10 @@
 
 /datasets
 /indoor_backgrounds
-/output_results
 /runs
 /train_images
-/Models
-/validation_dataset
+/validation_images
 
 /yolo11n.pt
 /yolov8n-pose.pt
+/yolov8s-pose.pt

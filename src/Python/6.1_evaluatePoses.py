@@ -6,38 +6,49 @@ from pathlib import Path
 from scipy.spatial import cKDTree
 from itertools import combinations
 
-# ══════════════════════════════════════════════════════════════════
-#  3D model points
-# ══════════════════════════════════════════════════════════════════
 MODEL_POINTS = {
     "pikachu": np.array([
-        [-0.03317,  0.032222,  0.026848], [ 0.038824, 0.033323,  0.027113],
-        [ 0.003446, 0.044969,  0.048924], [-0.082297, 0.110011,  0.022695],
-        [ 0.06744,  0.135588,  0.020059], [-0.05225, -0.037227,  0.033301],
-        [ 0.031411,-0.106078,  0.03378 ], [ 0.004526, 0.024382,  0.042954],
-        [-0.007097,-0.033314, -0.067379], [ 0.017621,-0.016944, -0.043715],
-        [ 0.021618,-0.048971, -0.042163], [-0.000972,-0.083431,  0.030024],
+        [-0.032902, 0.04224, 0.02885],  # left cheeck
+        [0.039567, 0.044448, 0.029131],  # right cheeck
+        [-0.071736, 0.107214, 0.022556],  # left ear
+        [0.059494, 0.121871, 0.021735],  # right ear
+        [-0.05225, -0.037227, 0.033301],  # left foot
+        [0.031411, -0.106078, 0.03378],  # right foot
+        [0.003817, 0.031145, 0.045193],  # mouth
+        [-0.007097, -0.033314, -0.067379],  # Tail Start
+        [0.046248, -0.010721, -0.020798],  # Brown top
+        [0.009193, -0.084459, -0.031145]  # tail bottom
     ]),
+
     "racket": np.array([
-        [ 0.000162,-0.128434,-0.011431], [ 0.033001,-0.041097,-0.006767],
-        [-0.031743,-0.03634, -0.007068], [-0.000218, 0.100594,-0.007402],
-        [-0.003323, 0.098523, 0.006255], [ 0.035348,-0.037745, 0.006527],
-        [-0.028726,-0.040778, 0.006669], [ 0.066402,-0.031275,-0.00055 ],
-        [-0.062846,-0.03584, -0.001009], [-0.001795, 0.105068,-0.001177],
-        [ 0.000657,-0.154482, 0.00027 ], [ 0.000125,-0.054361, 0.005995],
-        [ 0.002068,-0.055594,-0.006402],
+        [0.001079, -0.142991, -0.01148],  # 0: label/sticker
+        [0.066402, -0.031275, -0.00055],  # 1: head left (widest)
+        [-0.075178, 0.01246, 0.000103],  # 2: head right (widest)
+        [-0.001795, 0.105068, -0.001177],  # 3: head top center
+        [0.001159, -0.052217, -0.006652],  # 4: junction center purple side
+        [-0.012959, -0.054215, 0.002821],  # 5: junction right black side
+        [-0.041474, -0.05266, -0.003546],  # 6: junction left purple side
+        [-0.031743, -0.03634, -0.007068],  # 7: rubber bottom-right purple side
+        [0.004968, -0.044034, 0.006658]  # 8: rubber bottom-left black side
     ]),
+
     "pen": np.array([
-        [ 0.000000,-0.082259, 0.000000], [ 0.001036, 0.090359,-0.001282],
-        [-0.002065,-0.059794,-0.003431], [ 0.002856,-0.062973,-0.002380],
-        [-0.001383,-0.060672, 0.004303], [-0.001565, 0.040400,-0.004019],
-        [ 0.004084, 0.042871,-0.002889], [-0.001036, 0.038890, 0.003492],
-        [-0.001404,-0.065066,-0.000396],
+        [0.000000, 0.094079, 0.000000],  # 0: Tip
+        [-0.002321, 0.08273, -0.002907],  # 1: corner wood 1
+        [-0.00221, 0.082837, 0.002933],  # 2: corner wood 2
+        [0.003344, 0.083185, -0.000018],  # 3: corner wood 3
+        [0.000181, 0.013831, -0.003172],  # 5: gold middle
+        [0.000268, -0.072056, -0.003084],  # 8: end 1
+        [-0.00282, -0.072235, 0.001861],  # 9: end 2
+        [0.003255, -0.072035, 0.001596],  # 10: end 3
+        [0.000000, -0.088983, 0.000000]  # 11: rubber
     ]),
 }
 
-CAMERA_MATRIX_480 = np.array([
-    [324.81, 0, 238.6725], [0, 324.81, 239.00625], [0, 0, 1],
+CAMERA_MATRIX = np.array([
+    [433.08, 0.00, 318.235],
+    [0.00, 433.08, 318.675],
+    [0.00, 0.00, 1.000]
 ])
 
 
@@ -160,7 +171,7 @@ def process_result_file(results_path, ground_truth, pts):
                 mr.det_adds.append(compute_adds(pts, T_pred, T_gt))
                 mr.det_trans.append(translation_error_mm(T_pred[:3,3], T_gt[:3,3]))
                 mr.det_rot.append(rotation_error_deg(T_pred[:3,:3], T_gt[:3,:3]))
-                mr.det_reproj.append(reprojection_error_px(pts, T_pred, T_gt, CAMERA_MATRIX_480))
+                mr.det_reproj.append(reprojection_error_px(pts, T_pred, T_gt, CAMERA_MATRIX))
                 mr.det_fids.append(fid)
 
             if past_warmup:
@@ -180,7 +191,7 @@ def process_result_file(results_path, ground_truth, pts):
                 mr.trk_adds.append(compute_adds(pts, T_trk, T_gt))
                 mr.trk_trans.append(translation_error_mm(T_trk[:3,3], T_gt[:3,3]))
                 mr.trk_rot.append(rotation_error_deg(T_trk[:3,:3], T_gt[:3,:3]))
-                mr.trk_reproj.append(reprojection_error_px(pts, T_trk, T_gt, CAMERA_MATRIX_480))
+                mr.trk_reproj.append(reprojection_error_px(pts, T_trk, T_gt, CAMERA_MATRIX))
                 mr.trk_fids.append(fid)
 
             if past_warmup:

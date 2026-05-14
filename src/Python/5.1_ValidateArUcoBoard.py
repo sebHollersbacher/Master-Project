@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from pathlib import Path
 
-session_dir = Path("validation_dataset/racket")
+session_dir = Path("train_images/recorded/pikachu_original")
 
 dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
 board = cv2.aruco.CharucoBoard((7, 5), 0.024, 0.018, dictionary)
@@ -26,7 +26,7 @@ for frame_path in frames:
 
     if n_corners == 0:
         failed.append((frame_path.name, "no corners"))
-    elif n_corners < 6:
+    elif n_corners < 8:
         low_corner_count.append((frame_path.name, n_corners))
 
 total = len(frames)
@@ -43,11 +43,11 @@ print(f"  Mean corners/frame:  {np.mean(per_frame_corners):.1f}")
 print(f"  Median corners:      {np.median(per_frame_corners):.0f}")
 
 if failed:
-    print(f"\nFailed frames (first 20):")
-    for name, reason in failed[:20]:
+    print(f"\nFailed frames:")
+    for name, reason in failed:
         print(f"  {name}: {reason}")
 
 if low_corner_count:
-    print(f"\nLow-corner frames (first 20):")
-    for name, n in low_corner_count[:20]:
+    print(f"\nLow-corner frames:")
+    for name, n in low_corner_count:
         print(f"  {name}: {n} corners")
