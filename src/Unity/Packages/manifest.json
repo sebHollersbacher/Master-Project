@@ -2,6 +2,7 @@
   "dependencies": {
     "com.meta.xr.sdk.all": "83.0.1",
     "com.unity.ai.inference": "2.5.0",
+    "com.unity.cloud.gltfast": "6.19.0",
     "com.unity.feature.development": "1.0.2",
     "com.unity.inputsystem": "1.19.0",
     "com.unity.learn.iet-framework": "5.0.3",

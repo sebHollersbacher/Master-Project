@@ -56,9 +56,15 @@ class ColorHistograms {
   void AddBackgroundColor(const cv::Vec3b &pixel_color);
   bool InitializeHistograms();
   bool UpdateHistograms();
+  void SetForegroundTexture(const cv::Mat& texture);
+  void SnapshotForegroundReference();
+  void StartLearningBoost(int n_frames, float boost_rate);
   void GetProbabilities(const cv::Vec3b &pixel_color,
                         float *pixel_color_probability_f,
                         float *pixel_color_probability_b) const;
+
+  bool ResetForegroundFromTexture();
+  float ForegroundDivergence() const;
 
   // Getters
   const std::string &name() const;
@@ -73,15 +79,19 @@ class ColorHistograms {
   bool LoadMetaData();
   bool PrecalculateVariables();
   void SetUpHistograms();
+  void BuildTextureHistogramCache();
   void CalculateHistogram(float learning_rate,
                           const std::vector<float> &histogram_memory,
                           std::vector<float> *histogram);
+
+  bool BuildHistogramFromTexture(std::vector<float> *histogram);
 
   // Internal data objects
   std::vector<float> histogram_memory_f_{};
   std::vector<float> histogram_memory_b_{};
   std::vector<float> histogram_f_{};
   std::vector<float> histogram_b_{};
+  std::vector<float> snapshot_hist_;
 
   // Precalculated variables
   int bitshift_{};
@@ -94,10 +104,18 @@ class ColorHistograms {
   int n_bins_ = 16;
   float learning_rate_f_ = 0.2f;
   float learning_rate_b_ = 0.2f;
+  int boost_frames_remaining_ = 0;
+  float boosted_learning_rate_f_ = 0.3f;
 
   // State
+  bool has_snapshot_ = false;
   bool histogram_valid_ = false;
   bool set_up_ = false;
+
+  // Texture
+  cv::Mat foreground_texture_;
+  bool has_foreground_texture_ = false;
+  std::vector<float> texture_hist_normalized_;
 };
 
 }  // namespace m3t

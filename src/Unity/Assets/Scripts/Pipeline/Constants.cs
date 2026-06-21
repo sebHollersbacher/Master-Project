@@ -52,7 +52,8 @@ public class Constants
         new(0, 0, 1)  // Row 2: 0,  0,  1
     };
     
-    public static readonly Vector2 ModelResolution = new Vector2(640, 640); 
+    public static readonly Vector2 ModelResolution = new(640, 640); 
     public static readonly int Width = 640;
     public static readonly int Height = 640;
+    public static int TrackingRGBResolution = 640;
 }

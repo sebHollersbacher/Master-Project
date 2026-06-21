@@ -23,6 +23,9 @@ bool ColorHistograms::SetUp() {
   if (!PrecalculateVariables()) return false;
   SetUpHistograms();
   set_up_ = true;
+
+  if (has_foreground_texture_) BuildTextureHistogramCache();
+
   return true;
 }
 
@@ -74,7 +77,11 @@ bool ColorHistograms::InitializeHistograms() {
     std::cerr << "Set up color histogram " << name_ << " first" << std::endl;
     return false;
   }
-  CalculateHistogram(1.0f, histogram_memory_f_, &histogram_f_);
+
+  if (!BuildHistogramFromTexture(&histogram_f_)) {
+    CalculateHistogram(1.0f, histogram_memory_f_, &histogram_f_);
+  }
+
   CalculateHistogram(1.0f, histogram_memory_b_, &histogram_b_);
   ClearMemory();
   return true;
@@ -85,10 +92,153 @@ bool ColorHistograms::UpdateHistograms() {
     std::cerr << "Set up color histogram " << name_ << " first" << std::endl;
     return false;
   }
-  CalculateHistogram(learning_rate_f_, histogram_memory_f_, &histogram_f_);
+
+  float effective_lr_f = learning_rate_f_;
+  if (boost_frames_remaining_ > 0) {
+    effective_lr_f = boosted_learning_rate_f_;
+    boost_frames_remaining_--;
+
+    if (boost_frames_remaining_ == 0 && has_foreground_texture_) {
+      SnapshotForegroundReference();
+    }
+}
+
+  CalculateHistogram(effective_lr_f, histogram_memory_f_, &histogram_f_);
   CalculateHistogram(learning_rate_b_, histogram_memory_b_, &histogram_b_);
   ClearMemory();
   return true;
+}
+
+void ColorHistograms::StartLearningBoost(int n_frames, float boost_rate) {
+  boost_frames_remaining_ = n_frames;
+  boosted_learning_rate_f_ = boost_rate;
+}
+
+void ColorHistograms::SetForegroundTexture(const cv::Mat& texture) {
+  if (texture.empty()) return;
+
+  if (texture.channels() == 4) {
+    cv::Mat channels[4];
+    cv::split(texture, channels);
+    cv::merge(std::vector<cv::Mat>{channels[0], channels[1], channels[2]},
+              foreground_texture_);
+  } else {
+    foreground_texture_ = texture.clone();
+  }
+  has_foreground_texture_ = true;
+
+  if (set_up_) BuildTextureHistogramCache();
+}
+
+void ColorHistograms::BuildTextureHistogramCache() {
+  texture_hist_normalized_.assign(n_bins_cubed_, 0.0f);
+  float sum = 0.0f;
+
+  cv::Mat gray;
+  cv::cvtColor(foreground_texture_, gray, cv::COLOR_BGR2GRAY);
+
+  for (int r = 0; r < foreground_texture_.rows; ++r) {
+    const auto* pix = foreground_texture_.ptr<cv::Vec3b>(r);
+    const auto* g = gray.ptr<uchar>(r);
+    for (int c = 0; c < foreground_texture_.cols; ++c) {
+      if (g[c] <= 5) continue;
+      int idx = int((pix[c][0] >> bitshift_) * n_bins_squared_) +
+                int((pix[c][1] >> bitshift_) * n_bins_) +
+                int(pix[c][2] >> bitshift_);
+      texture_hist_normalized_[idx] += 1.0f;
+      sum += 1.0f;
+    }
+  }
+
+  if (sum > 0.0f) {
+    for (int i = 0; i < n_bins_cubed_; ++i) texture_hist_normalized_[i] /= sum;
+  }
+}
+
+void ColorHistograms::SnapshotForegroundReference() {
+  if (!set_up_) return;
+  snapshot_hist_ = histogram_f_;
+  has_snapshot_ = true;
+}
+
+bool ColorHistograms::BuildHistogramFromTexture(std::vector<float>* histogram) {
+  if (!has_foreground_texture_ || !set_up_) return false;
+
+  std::fill(begin(histogram_memory_f_), end(histogram_memory_f_), 0.0f);
+
+  cv::Mat mask, gray;
+  cv::cvtColor(foreground_texture_, gray, cv::COLOR_BGR2GRAY);
+  cv::threshold(gray, mask, 5, 255, cv::THRESH_BINARY);
+
+  int count = 0;
+  for (int r = 0; r < foreground_texture_.rows; ++r) {
+    const auto* pix = foreground_texture_.ptr<cv::Vec3b>(r);
+    const auto* m = mask.ptr<uchar>(r);
+    for (int c = 0; c < foreground_texture_.cols; ++c) {
+      if (m[c] == 0) continue;
+      AddForegroundColor(pix[c]);
+      ++count;
+    }
+  }
+
+  if (count == 0) return false;
+
+  CalculateHistogram(1.0f, histogram_memory_f_, histogram);
+  std::fill(begin(histogram_memory_f_), end(histogram_memory_f_), 0.0f);
+  return true;
+}
+
+bool ColorHistograms::ResetForegroundFromTexture() {
+  has_snapshot_ = false;
+  return BuildHistogramFromTexture(&histogram_f_);
+}
+
+float ColorHistograms::ForegroundDivergence() const {
+  // Prefer snapshot (actual camera colors), fall back to texture
+  const std::vector<float>* reference = nullptr;
+  if (has_snapshot_)
+    reference = &snapshot_hist_;
+  else if (has_foreground_texture_ && !texture_hist_normalized_.empty())
+    reference = &texture_hist_normalized_;
+  else
+    return -1.0f;
+
+  const int chroma_bins = 8;
+  const int chroma_total = chroma_bins * chroma_bins;
+  const float scale = 256.0f / float(n_bins_);
+
+  std::vector<float> chroma_f(chroma_total, 0.0f);
+  std::vector<float> chroma_r(chroma_total, 0.0f);
+
+  for (int d0 = 0; d0 < n_bins_; ++d0) {
+    float v0 = (d0 + 0.5f) * scale;
+    for (int d1 = 0; d1 < n_bins_; ++d1) {
+      float v1 = (d1 + 0.5f) * scale;
+      for (int d2 = 0; d2 < n_bins_; ++d2) {
+        float v2 = (d2 + 0.5f) * scale;
+        float total = v0 + v1 + v2;
+
+        if (total < 30.0f) continue;
+
+        int fine_idx = d0 * n_bins_squared_ + d1 * n_bins_ + d2;
+
+        float c0 = v0 / total;
+        float c1 = v1 / total;
+        int cb0 = std::min(int(c0 * chroma_bins), chroma_bins - 1);
+        int cb1 = std::min(int(c1 * chroma_bins), chroma_bins - 1);
+        int ci = cb0 * chroma_bins + cb1;
+
+        chroma_f[ci] += histogram_f_[fine_idx];
+        chroma_r[ci] += (*reference)[fine_idx];
+      }
+    }
+  }
+
+  float bc = 0.0f;
+  for (int i = 0; i < chroma_total; ++i)
+    bc += std::sqrt(chroma_f[i] * chroma_r[i]);
+
+  return std::sqrt(std::max(0.0f, 1.0f - bc));
 }
 
 void ColorHistograms::GetProbabilities(const cv::Vec3b& pixel_color,

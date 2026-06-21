@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -12,7 +13,12 @@ public class Detection : MonoBehaviour
     private Tensor<float> inputTensor;
     private RenderTexture copyTexture;
     private Worker worker;
-    
+
+    private TaskCompletionSource<YoloResult> pendingResult;
+    private float pendingMinScore;
+    public bool IsRunning { get; private set; }
+    private int maxLayersPerFrame = 23;
+
     public struct YoloResult
     {
         public Rect boundingBox;
@@ -48,7 +54,67 @@ public class Detection : MonoBehaviour
 
         return lensLocalOpenCv * newDetection;
     }
-    
+
+    public Task<YoloResult> Inference(Texture cameraTexture, float minScore)
+    {
+        if (IsRunning)
+            return Task.FromResult(new YoloResult { isValid = false });
+
+        Graphics.Blit(cameraTexture, copyTexture);
+        TextureConverter.ToTensor(copyTexture, inputTensor,
+            new TextureTransform().SetTensorLayout(TensorLayout.NCHW));
+
+        pendingMinScore = minScore;
+        pendingResult = new TaskCompletionSource<YoloResult>();
+        IsRunning = true;
+
+        StartCoroutine(RunInferenceCoroutine());
+        return pendingResult.Task;
+    }
+
+
+    private IEnumerator RunInferenceCoroutine()
+    {
+        var schedule = worker.ScheduleIterable(inputTensor);
+        int layersThisFrame = 0;
+
+        while (schedule.MoveNext())
+        {
+            layersThisFrame++;
+            if (layersThisFrame >= maxLayersPerFrame)
+            {
+                layersThisFrame = 0;
+                yield return null;
+            }
+        }
+
+        CompleteInference();
+    }
+
+    private async void CompleteInference()
+    {
+        var tcs = pendingResult;
+        pendingResult = null;
+
+        Tensor<float> outputTensor = worker.PeekOutput() as Tensor<float>;
+        int numFeatures = outputTensor.shape[0];
+
+        try
+        {
+            Tensor<float> cpuTensor = await outputTensor.ReadbackAndCloneAsync();
+            float[] data = cpuTensor.DownloadToArray();
+            cpuTensor.Dispose();
+            IsRunning = false;
+            tcs.TrySetResult(ParseKeypoints(data, pendingMinScore, numFeatures));
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[Detection] Error: {e.Message}");
+            IsRunning = false;
+            tcs.TrySetResult(new YoloResult { isValid = false });
+        }
+    }
+
     private Model WrapModelWithPostprocess(ModelAsset modelAsset)
     {
         Model baseModel = ModelLoader.Load(modelAsset);
@@ -66,30 +132,6 @@ public class Detection : MonoBehaviour
         bestPred = bestPred[0, .., 0];
 
         return graph.Compile(bestPred);
-    }
-
-    public async Task<YoloResult> Inference(Texture cameraTexture, float minScore)
-    {
-        Graphics.Blit(cameraTexture, copyTexture);
-        TextureConverter.ToTensor(copyTexture, inputTensor,
-            new TextureTransform().SetTensorLayout(TensorLayout.NCHW));
-        worker.Schedule(inputTensor);
-
-        Tensor<float> outputTensor = worker.PeekOutput() as Tensor<float>;
-        int numFeatures = outputTensor.shape[0];
-
-        try
-        {
-            Tensor<float> cpuTensor = await outputTensor.ReadbackAndCloneAsync();
-            float[] data = cpuTensor.DownloadToArray();
-            cpuTensor.Dispose();
-            return ParseKeypoints(data, minScore, numFeatures);
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"[Detection] Error reading CPU tensor: {e.Message}");
-            return new YoloResult { isValid = false };
-        }
     }
 
     public YoloResult ParseKeypoints(float[] data, float minScore, int numFeatures)

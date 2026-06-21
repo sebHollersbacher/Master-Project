@@ -108,6 +108,9 @@ MonoBehaviour:
   hitForceMultiplier: 1.5
   minHitSpeed: 0.5
   maxBallSpeed: 20
+  racketRestitution: 0.85
+  hitCooldown: 0.1
+  separationOffset: 0.025
 --- !u!54 &7576527201259617627
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -142,7 +145,7 @@ SphereCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2443598721366225857}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 4717a010e9bdf344fbc53730b4625c4b, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0

@@ -5,6 +5,7 @@ public class RacketPhysics : MonoBehaviour
     private Rigidbody _rb;
     private Vector3 _previousPosition;
     private Vector3 _currentVelocity;
+    private Vector3 _previousFrameVelocity;
 
     private void Start()
     {
@@ -19,10 +20,11 @@ public class RacketPhysics : MonoBehaviour
         Vector3 targetPos = transform.parent.position;
         Quaternion targetRot = transform.parent.rotation;
 
-        // Calculate velocity from tracking movement
-        _currentVelocity = (targetPos - _previousPosition) / Time.fixedDeltaTime;
+        Vector3 frameVelocity = (targetPos - _previousPosition) / Time.fixedDeltaTime;
 
-        // Move via physics so collisions are detected
+        _currentVelocity = Vector3.Lerp(_previousFrameVelocity, frameVelocity, 0.7f);
+        _previousFrameVelocity = frameVelocity;
+
         _rb.MovePosition(targetPos);
         _rb.MoveRotation(targetRot);
 

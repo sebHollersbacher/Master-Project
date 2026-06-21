@@ -6,9 +6,11 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.UI;
 
 public class FrameCapture : MonoBehaviour
 {
+    [SerializeField] private RawImage rgbImage;
     private string sessionPath;
     private int frameIndex = 0;
     private int warmup = 10;
@@ -57,6 +59,7 @@ public class FrameCapture : MonoBehaviour
         {
             await Task.Yield();
         }
+        rgbImage.texture = _cameraAccess.GetTexture();
     }
 
     private void Update()
@@ -104,7 +107,7 @@ public class FrameCapture : MonoBehaviour
         tex.LoadRawTextureData(image);
         tex.Apply();
         File.WriteAllBytes(path, tex.EncodeToPNG());
-        UnityEngine.Object.Destroy(tex);
+        Destroy(tex);
     }
     
     private unsafe void SaveDepthRaw(NativeArray<ushort> depth, string path)

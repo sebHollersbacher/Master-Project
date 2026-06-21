@@ -644,13 +644,11 @@ std::vector<std::shared_ptr<Renderer>> RegionModality::results_renderer_ptrs()
 }
 
 std::shared_ptr<ColorHistograms> RegionModality::color_histograms_ptr() const {
-  if (use_shared_color_histograms_)
-    return color_histograms_ptr_;
-  else
-    return nullptr;
+  return color_histograms_ptr_;
 }
 
 int RegionModality::n_lines_max() const { return n_lines_max_; }
+int RegionModality::n_valid_lines() const { return static_cast<int>(data_lines_.size()); }
 
 bool RegionModality::use_adaptive_coverage() const {
   return use_adaptive_coverage_;

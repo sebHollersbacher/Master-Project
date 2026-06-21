@@ -4,7 +4,7 @@ public class PenDrawing : MonoBehaviour
 {
     public Transform penTip;
     
-    public float drawDistance = 0.02f;
+    public float drawDistance = 0.03f;
     public int brushRadius = 3;
     public Color penColor = Color.black;
     public bool interpolateStrokes = true;
@@ -17,8 +17,12 @@ public class PenDrawing : MonoBehaviour
     {
         if (penTip == null) return;
 
-        // Raycast from the pen tip in its forward direction
-        if (Physics.Raycast(penTip.position, penTip.forward, out RaycastHit hit, drawDistance))
+        bool hitForward = Physics.Raycast(penTip.position, penTip.forward, out RaycastHit hitFwd, drawDistance);
+        bool hitBackward = Physics.Raycast(penTip.position, -penTip.forward, out RaycastHit hitBack, drawDistance);
+
+        RaycastHit hit = hitForward ? hitFwd : hitBack;
+        
+        if (hitForward || hitBackward)
         {
             if (hit.collider.CompareTag("Canvas"))
             {

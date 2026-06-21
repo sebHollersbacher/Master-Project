@@ -5,6 +5,8 @@ public class Mapping : MonoBehaviour
     [SerializeField] private Transform _targetTransform;
     [SerializeField] private Transform centerEyeAnchor;
     
+    [SerializeField] private Vector3 smoothing = new(0.4f, 0.4f, 0.15f);
+    
     public void UpdatePose(Matrix4x4 pose)
     {
         // Convert from OpenCV to Unity
@@ -20,9 +22,11 @@ public class Mapping : MonoBehaviour
         Vector3 finalWorldPos = centerEyeAnchor.TransformPoint(rawPos);
         Quaternion finalWorldRot = centerEyeAnchor.rotation * rawRot;
 
-        _targetTransform.position = finalWorldPos;
-        _targetTransform.rotation = finalWorldRot;
-        // _targetTransform.position = Vector3.Lerp(_targetTransform.position, finalWorldPos, 0.3f);
-        // _targetTransform.rotation = Quaternion.Slerp(_targetTransform.rotation, finalWorldRot, 0.3f);
+        _targetTransform.rotation = Quaternion.Slerp(_targetTransform.rotation, finalWorldRot, 0.15f);
+        Vector3 smoothedPos = new Vector3();
+        smoothedPos.x = Mathf.Lerp(_targetTransform.position.x, finalWorldPos.x, 0.5f);   // responsive
+        smoothedPos.y = Mathf.Lerp(_targetTransform.position.y, finalWorldPos.y, 0.5f);   // responsive
+        smoothedPos.z = Mathf.Lerp(_targetTransform.position.z, finalWorldPos.z, 0.15f);  // heavily dampened
+        _targetTransform.position = smoothedPos;
     }
 }

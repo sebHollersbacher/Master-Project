@@ -273,6 +273,7 @@ class RegionModality : public Modality {
 
   // Getters for general distribution
   int n_lines_max() const;
+  int n_valid_lines() const;
   bool use_adaptive_coverage() const;
   float reference_contour_length() const;
   float min_continuous_distance() const;
